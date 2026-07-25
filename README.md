@@ -1,6 +1,6 @@
 # Jellybeans
 
-Self-contained, drop-in features for ESP32 / embedded projects — the software
+Self-contained, drop-in features for ESP32 / embedded projects. The software
 equivalent of [jellybean parts](https://en.wikipedia.org/wiki/Jellybean_%28integrated_circuit%29):
 generic, interchangeable components that work the same everywhere. Each bean is a
 PlatformIO library you copy into a project's `lib/` or reference in place with
