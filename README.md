@@ -34,7 +34,7 @@ baseline) lives in [design.md](design.md). Read it before adding a bean.
 
 ## Building
 
-There is no top-level build — the repo is a container, not an application. Each
+There is no top-level build. The repo is a container, not an application. Each
 bean builds through its own example:
 
 ```bash
