@@ -18,10 +18,10 @@ baseline) lives in [design.md](design.md). Read it before adding a bean.
 - **Names are feature-specific:** unique header names (`WebConsole.h`) and unique
   `library.json` names.
 - **Platform:** pioarduino `platform-espressif32` (Arduino-ESP32 3.x / IDF 5.x);
-  pin async deps to the ESP32Async forks. C++17 is required, beans use
+  pin async deps to the ESP32Async forks. C++17 is required, since beans use
   nested-namespace syntax.
-- **Concurrency:** beans that wrap callback-driven libraries keep host handlers out
-  of the framework's task context, inbound work is deferred into the host's
+- **Concurrency:** beans that wrap callback-driven libraries keep host handlers
+  out of the framework's task context. Inbound work is deferred into the host's
   `loop()`, so your handlers may touch hardware freely.
 - **Examples:** each bean contains a buildable `examples/` sketch that compiles the
   library in place, plus a README covering its API and wire contract.
