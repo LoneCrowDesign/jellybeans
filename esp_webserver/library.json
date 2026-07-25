@@ -1,0 +1,20 @@
+{
+  "name": "WebConsole",
+  "version": "0.1.0",
+  "description": "Drop-in async web console for ESP32: schema-driven UI, live log stream (WebSocket + curl), command registry, and a persisted variable registry. Built on ESP32Async (ESPAsyncWebServer + AsyncTCP).",
+  "keywords": "esp32, async, webserver, websocket, console, telemetry, softap",
+  "authors": [
+    { "name": "Lone Crow Design, LLC" }
+  ],
+  "license": "GPL-3.0-or-later",
+  "frameworks": "arduino",
+  "platforms": "espressif32",
+  "dependencies": [
+    { "owner": "ESP32Async", "name": "ESPAsyncWebServer", "version": "^3.11.2" },
+    { "owner": "ESP32Async", "name": "AsyncTCP", "version": "^3.4.10" },
+    { "owner": "bblanchon", "name": "ArduinoJson", "version": "^7" }
+  ],
+  "export": {
+    "include": ["src", "examples", "README.md"]
+  }
+}
