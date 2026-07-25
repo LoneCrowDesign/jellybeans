@@ -1,9 +1,9 @@
 // Copyright (C) 2026 Lone Crow Design, LLC
-// Licensed under GPLv3 — see LICENSE
+// Licensed under GPLv3. See LICENSE
 //
 // Smallest useful WebConsole setup: a SoftAP, one command, two variables (one
 // persisted), and a heartbeat that streams to the log. Join "WebConsole-Demo"
-// (password below), browse to http://192.168.4.1/ — or curl it:
+// (password below), browse to http://192.168.4.1/, or curl it:
 //   curl http://192.168.4.1/api/manifest
 //   curl "http://192.168.4.1/api/log"
 //   curl -d "name=ping" http://192.168.4.1/api/cmd
@@ -26,7 +26,7 @@ void setup() {
   Serial.begin(115200);
   SPIFFS.begin(true);  // for the persisted log file (optional)
 
-  // A bare verb: no args, no button — just type `ping` in the console.
+  // A bare verb: no args, no button; just type `ping` in the console.
   console.onCommand("ping", "reply pong", [](JsonVariantConst) {
     return String("pong");
   });
@@ -101,7 +101,7 @@ void setup() {
   console.server().on("/about", HTTP_GET, [](AsyncWebServerRequest* req) {
     req->send(200, "text/html", console.pageShell("About",
       "<section class=\"card\"><h2>About</h2>"
-      "<p>A bespoke page rendered through <code>pageShell()</code> — same theme, "
+      "<p>A bespoke page rendered through <code>pageShell()</code>: same theme, "
       "same nav bar as the console home.</p></section>"));
   });
 

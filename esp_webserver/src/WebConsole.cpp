@@ -1,12 +1,12 @@
 // Copyright (C) 2026 Lone Crow Design, LLC
-// Licensed under GPLv3 — see LICENSE
+// Licensed under GPLv3. See LICENSE
 //
 // See WebConsole.h for the design and the concurrency contract. In short:
 // inbound WS/HTTP requests arrive on the async TCP task; command handlers and
 // variable setters are deferred onto an owned queue and executed from tick()
 // in the loop() task, so user code never runs in the async context.
 //
-// WebConsole is intended as a single instance per sketch — the cross-task
+// WebConsole is intended as a single instance per sketch; the cross-task
 // queues below are guarded by file-static mutexes shared across instances,
 // which is correct (if slightly over-serialized) should you ever run two.
 
@@ -74,7 +74,7 @@ static const char* fieldTypeName(FieldType t) {
 }
 
 // Read a collection's backing file into doc. False (and doc left empty) if the
-// file is missing or not valid JSON — callers treat that as "start from empty".
+// file is missing or not valid JSON; callers treat that as "start from empty".
 static bool loadColl(fs::FS* fs, const char* path, JsonDocument& doc) {
   if (!fs || !fs->exists(path)) return false;
   File f = fs->open(path, FILE_READ);
@@ -86,7 +86,7 @@ static bool loadColl(fs::FS* fs, const char* path, JsonDocument& doc) {
 
 // ─── Registration (call before begin) ────────────────────────────────────────
 
-// Serialize a Field[] schema into a manifest array — shared by commands (arg
+// Serialize a Field[] schema into a manifest array, shared by commands (arg
 // schema) and collections (record schema) so both describe fields identically.
 static void serializeFields(JsonArray arr, const Field* fields, size_t n) {
   for (size_t i = 0; i < n; i++) {
@@ -196,7 +196,7 @@ bool WebConsole::begin(const Config& cfg) {
   ws_->onEvent([this](AsyncWebSocket*, AsyncWebSocketClient* c, AwsEventType type,
                       void* arg, uint8_t* data, size_t len) {
     if (type == WS_EVT_CONNECT) {
-      // Live client pointer — safe to use synchronously inside the callback.
+      // Live client pointer, safe to use synchronously inside the callback.
       String m = buildManifest();
       c->text(m);
     } else if (type == WS_EVT_DATA) {
@@ -276,7 +276,7 @@ bool WebConsole::begin(const Config& cfg) {
     req->send(200, "application/json", "{\"ok\":true}");
   });
 
-  // POST /api/upload?name=<n>  (multipart) — stream the body to the slot's file
+  // POST /api/upload?name=<n>  (multipart): stream the body to the slot's file
   // on cfg.fs, then validate in loop(). The upload callback runs before the
   // request callback, so auth is checked there (index 0) to reject *before*
   // overwriting the target file.
@@ -319,7 +319,7 @@ bool WebConsole::begin(const Config& cfg) {
   // POST /api/collection/{create,edit,delete}?name=<coll>[&index=<i>]  with the
   // record's fields in the POST body. The collection id + index live in the QUERY
   // string (post=false) so they never collide with a record field literally named
-  // "name" or "index" — assembleRecord reads fields from the body (post=true).
+  // "name" or "index"; assembleRecord reads fields from the body (post=true).
   // All mutate the backing file in loop() context; return 202, result over WS.
   auto collMutate = [this](AsyncWebServerRequest* req, int op) {
     if (!authOkHttp(req)) { req->send(401, "text/plain", "auth required"); return; }
@@ -336,7 +336,7 @@ bool WebConsole::begin(const Config& cfg) {
   server_->on("/api/collection/edit",   HTTP_POST, [collMutate](AsyncWebServerRequest* r) { collMutate(r, 1); });
   server_->on("/api/collection/delete", HTTP_POST, [collMutate](AsyncWebServerRequest* r) { collMutate(r, 2); });
 
-  // POST /api/var  name=<n> value=<v> [token=<t>]  — applied in loop(), returns 202.
+  // POST /api/var  name=<n> value=<v> [token=<t>]  : applied in loop(), returns 202.
   server_->on("/api/var", HTTP_POST, [this](AsyncWebServerRequest* req) {
     if (!authOkHttp(req)) { req->send(401, "text/plain", "auth required"); return; }
     if (!req->hasParam("name", true) || !req->hasParam("value", true)) {
@@ -350,7 +350,7 @@ bool WebConsole::begin(const Config& cfg) {
     req->send(202, "application/json", "{\"queued\":true}");
   });
 
-  // POST /api/cmd  name=<n> [args=<json>] [token=<t>]  — fire-and-forget; the
+  // POST /api/cmd  name=<n> [args=<json>] [token=<t>]  : fire-and-forget; the
   // result is delivered over the WebSocket. HTTP stays single-round-trip and
   // the handler still runs in loop() context.
   server_->on("/api/cmd", HTTP_POST, [this](AsyncWebServerRequest* req) {
@@ -426,7 +426,7 @@ void WebConsole::tick() {
       String out; serializeJson(d, out);
       ws_->textAll(out);
       log(String("[upload] ") + u.name + " → " + res);
-    } else {  // Job::Collection — read-modify-write the backing file in loop context
+    } else {  // Job::Collection: read-modify-write the backing file in loop context
       Collection& c = colls_[j.index];
       JsonDocument doc; loadColl(cfg_.fs, c.path, doc);
       JsonArray arr = doc[c.rootKey].is<JsonArray>() ? doc[c.rootKey].as<JsonArray>()

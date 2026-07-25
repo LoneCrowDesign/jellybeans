@@ -1,4 +1,4 @@
-# Jellybeans — design notes
+# Jellybeans design notes
 
 For "how to build/adopt a bean," see each bean's own README.
 This doc is the reasoning behind the shared conventions.
@@ -6,7 +6,7 @@ This doc is the reasoning behind the shared conventions.
 ## What a "jellybean" is
 
 A jellybean is a self-contained, drop-in feature for MCU development
-projects — the software equivalent of a [jellybean part](https://en.wikipedia.org/wiki/Jellybean_%28integrated_circuit%29):
+projects. It's the software equivalent of a [jellybean part](https://en.wikipedia.org/wiki/Jellybean_%28integrated_circuit%29):
 a generic, interchangeable component that works the same everywhere.
 
 Each bean lives in its own subdirectory as a PlatformIO library
@@ -19,7 +19,7 @@ host project two ways:
 ## The core principle: consistent contract, not consistent code
 
 The value of a collection like this is not that the beans share
-implementation — it's that they share contracts a host project already knows.
+implementation; it's that they share contracts a host project already knows.
 A new bean should feel like the last one: same wiring shape, same conventions,
 same docs layout. You should never re-learn an interface or rebuild a schema
 from scratch to adopt one.
@@ -46,7 +46,7 @@ in the Arduino IDE.
 
 Beans that touch async frameworks should keep host handlers out of framework
 task contexts by default. `esp_webserver` is an example: inbound async
-callbacks never run user code directly — work is copied into an owned queue and
+callbacks never run user code directly. Work is copied into an owned queue and
 executed from the host's `loop()`/`tick()`, so a user's handler may touch
 hardware freely without knowing the framework's threading model. New beans that
 wrap callback-driven libraries should follow suit rather than exporting the
@@ -56,6 +56,6 @@ framework's footguns to every adopter.
 
 Beans target the pioarduino `platform-espressif32` fork (Arduino-ESP32 3.x /
 IDF 5.x). Where a bean depends on async networking, it pins the maintained
-ESP32Async forks (`ESPAsyncWebServer`, `AsyncTCP`) — the original `me-no-dev`
-repos do not build consistently. Pin dependency versions in each bean's
-`library.json`.
+ESP32Async forks (`ESPAsyncWebServer`, `AsyncTCP`), because the original
+`me-no-dev` repos do not build consistently. Pin dependency versions in each
+bean's `library.json`.

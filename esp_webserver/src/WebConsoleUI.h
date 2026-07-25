@@ -1,16 +1,16 @@
 // Copyright (C) 2026 Lone Crow Design, LLC
-// Licensed under GPLv3 — see LICENSE
+// Licensed under GPLv3. See LICENSE
 //
 // The browser client, split into two shared pieces:
-//   WEBCONSOLE_CSS  — the stylesheet, reused by the SPA home page AND by
+//   WEBCONSOLE_CSS  : the stylesheet, reused by the SPA home page AND by
 //                     WebConsole::pageShell() so every user-facing page (home +
 //                     any host escape-hatch page) matches.
-//   WEBCONSOLE_BODY — the live console SPA body. Schema-driven: it draws nothing
+//   WEBCONSOLE_BODY: the live console SPA body. Schema-driven: it draws nothing
 //                     of its own; on the WebSocket "hello" manifest it builds the
 //                     log pane, command palette, variable table, record
 //                     collections, uploads, files, and the top-bar nav from
 //                     whatever the device advertised.
-// Both are served by WebConsole.cpp. Kept as editable raw string literals — tweak
+// Both are served by WebConsole.cpp. Kept as editable raw string literals; tweak
 // the markup in place, no build/minify step. Keep self-contained (no external
 // assets) so it works offline on a SoftAP.
 #pragma once
@@ -73,7 +73,7 @@ function line(t){const at=logEl.scrollTop+logEl.clientHeight>=logEl.scrollHeight
 function send(o){if(tok())o.token=tok();ws&&ws.readyState===1&&ws.send(JSON.stringify(o));}
 function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
-// Top-bar nav — Home plus every host-registered page (manifest.pages).
+// Top-bar nav: Home plus every host-registered page (manifest.pages).
 function renderNav(pages){const nav=$('#nav');if(!nav)return;nav.innerHTML='';
  const mk=(label,href)=>{const a=document.createElement('a');a.className='navbtn';a.href=href;a.textContent=label;
   if(href===location.pathname)a.classList.add('active');nav.appendChild(a);};
@@ -211,7 +211,7 @@ function showForm(col,index,rec){const c=colDefs[col];
   <div class="row"><button data-save>${index<0?'Create':'Save'}</button><button data-cancel>Cancel</button></div></div>`;
  holder.querySelector('[data-cancel]').onclick=()=>holder.innerHTML='';
  holder.querySelector('[data-save]').onclick=()=>{
-  const body=new URLSearchParams();  // record fields only — coll id/index go in the query
+  const body=new URLSearchParams();  // record fields only; coll id/index go in the query
   holder.querySelectorAll('[data-fld]').forEach(el=>{const val=el.type==='checkbox'?(el.checked?'1':''):el.value;
    if(val!=='')body.append(el.dataset.fld,val);});
   const q='?name='+encodeURIComponent(col)+(index>=0?'&index='+index:'');

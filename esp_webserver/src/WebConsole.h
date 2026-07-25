@@ -1,18 +1,18 @@
 // Copyright (C) 2026 Lone Crow Design, LLC
-// Licensed under GPLv3 — see LICENSE
+// Licensed under GPLv3. See LICENSE
 //
-// WebConsole — a drop-in, schema-driven web console for ESP32 projects.
+// WebConsole: a drop-in, schema-driven web console for ESP32 projects.
 //
 // The device advertises a *manifest* (its commands + variables) over one
 // WebSocket. A single self-contained browser page reads that manifest and
 // builds itself: a live log pane, a command palette, and a type-aware
-// variable table. New projects register commands/variables — the transport
+// variable table. New projects register commands/variables; the transport
 // and the UI never change. That is the whole point: you never hand-build a
 // per-project interface or schema again.
 //
 // Everything is reachable two ways so scripts and browsers both work:
-//   • WebSocket /ws  — live, bidirectional (the rich interactive path)
-//   • plain HTTP     — curl-friendly (pull logs, read manifest/vars, fire
+//   • WebSocket /ws  : live, bidirectional (the rich interactive path)
+//   • plain HTTP     : curl-friendly (pull logs, read manifest/vars, fire
 //                      commands, set vars)
 //
 // Concurrency model (read this before writing handlers):
@@ -35,7 +35,7 @@
 //   }
 //   void loop() { console.tick(); /* ... */ }
 //
-// Register commands/vars BEFORE begin() — begin() loads persisted variable
+// Register commands/vars BEFORE begin(); begin() loads persisted variable
 // values and publishes the manifest.
 #pragma once
 
@@ -61,7 +61,7 @@ enum class VarType { Bool, Int, Float, String };
 // A record collection is a list of structured records persisted as a JSON file
 // on cfg.fs. You declare the field schema; the bean renders a table + add/edit
 // form, validates on submit, and composes the fields into a consistent JSON
-// record. This is the untethered structured-data-entry primitive — foundational
+// record. This is the untethered structured-data-entry primitive, foundational
 // for devices with a limited on-board control set.
 enum class FieldType { Text, Number, Bool, Enum };
 struct Field {
@@ -81,25 +81,25 @@ struct CollectionOpts {
   const char* help = nullptr;
   RecordHook  validate = nullptr;
   // Fires in loop() context after a successful create/edit/delete has been
-  // written — for the host to refresh in-memory state derived from the file.
+  // written, for the host to refresh in-memory state derived from the file.
   std::function<void()> onChanged = nullptr;
 };
 
 // ─── Command options ─────────────────────────────────────────────────────────
 // Optional extras for onCommand(). Everything here is opt-in; a command with
 // default opts is a bare verb typed by name in the console.
-//   • args   — a typed argument schema (reusing Field). The console has no arg
+//   • args   : a typed argument schema (reusing Field). The console has no arg
 //              types otherwise, so untyped console text like `led on=true` could
 //              only be sent as the *string* "true", which handlers reading
 //              `a["on"] | false` would silently treat as false. Declaring the
 //              schema lets the console parse human-readable input and still put a
 //              correctly-typed object on the wire ({"on":true}). Enum `options`
 //              are validated; the array must outlive the console (static storage).
-//   • pinned — render this command as a button (with a typed mini-form when it
+//   • pinned : render this command as a button (with a typed mini-form when it
 //              has args) in the "Controls" card. Unpinned commands are invoked by
 //              name from the console input line. Default false → the out-of-the-box
 //              UI is a pure typed console; pin only the critical controls.
-//   • confirm — ask the browser to confirm before running (destructive controls).
+//   • confirm: ask the browser to confirm before running (destructive controls).
 struct CommandOpts {
   const Field* args = nullptr;
   size_t       argCount = 0;
@@ -110,7 +110,7 @@ struct CommandOpts {
 // ─── Type plumbing for bindVar<T>() ─────────────────────────────────────────
 // One public registration pattern (bindVar) covers every scalar type; these
 // map a C++ type to a wire VarType and to/from its string form. Add a type by
-// adding three lines here — nothing else changes.
+// adding three lines here; nothing else changes.
 namespace detail {
 template <class T> VarType varTypeOf();
 template <> inline VarType varTypeOf<bool>()   { return VarType::Bool; }
@@ -140,7 +140,7 @@ class WebConsole {
   struct Config {
     // SoftAP: non-null apSsid brings up an access point (WPA2 if apPassword is
     // 8+ chars, open otherwise). Leave apSsid null to run on an existing WiFi
-    // connection the caller already established (STA + mDNS use case) — begin()
+    // connection the caller already established (STA + mDNS use case); begin()
     // then never touches WiFi mode.
     const char* apSsid = nullptr;
     const char* apPassword = nullptr;
@@ -161,7 +161,7 @@ class WebConsole {
 
     // Non-null fs → the log is also appended to a rotating file you can curl
     // (GET /api/log?file=1). Null → live RAM tail only. Pass whatever filesystem
-    // the host project already mounts (SPIFFS, LittleFS, SD) — WebConsole does
+    // the host project already mounts (SPIFFS, LittleFS, SD). WebConsole does
     // not mount one for you.
     fs::FS* fs = nullptr;
     const char* logPath = "/console.log";
@@ -196,7 +196,7 @@ class WebConsole {
   // ─── Command registry ───────────────────────────────────────────────────────
   // name/help must be static strings (stored by pointer). Register before begin().
   // opts adds an argument schema, pins the command as a button, and/or requires a
-  // confirm — see CommandOpts. A command with no opts is a bare typed verb.
+  // confirm. See CommandOpts. A command with no opts is a bare typed verb.
   void onCommand(const char* name, const char* help, CmdHandler fn,
                  const CommandOpts& opts = {});
 
@@ -216,7 +216,7 @@ class WebConsole {
   // NOTE ON CONTEXT: unlike setters and command handlers, variable *getters* are
   // read from the async TCP task (a client connecting pulls the manifest; GET
   // /api/vars and /api/manifest read live values there). The deferred-to-loop()
-  // contract does NOT cover them — keep getters cheap and pure (no hardware, no
+  // contract does NOT cover them; keep getters cheap and pure (no hardware, no
   // shared-state mutation). bindVar's pointer read is fine; a computed getter here
   // must not do work that only loop() context makes safe.
   void addVar(const char* name, VarType type, const char* help, bool persist,
@@ -226,7 +226,7 @@ class WebConsole {
   // Expose an existing file on cfg.fs for download (GET /api/file?name=<name>)
   // and, if allowClear, erasure (POST /api/file/clear name=<name>). Appears in
   // the manifest so the UI shows a download (and Erase) control. Use it for
-  // domain artifacts the device writes elsewhere — run logs, capture CSVs,
+  // domain artifacts the device writes elsewhere: run logs, capture CSVs,
   // exports. Requires cfg.fs. Register before begin().
   void addFile(const char* name, const char* path,
                const char* contentType = "application/octet-stream", bool allowClear = false);
@@ -252,7 +252,7 @@ class WebConsole {
   size_t clientCount() const;  // connected WebSocket clients
 
   // ─── Escape hatch ───────────────────────────────────────────────────────────
-  // Raw server handle for the long tail — bespoke routes the declarative surface
+  // Raw server handle for the long tail: bespoke routes the declarative surface
   // can't model (e.g. a rich diagnostic report). Valid after begin(); register
   // routes right after it. Reserve this for genuinely one-off views; foundational
   // needs should be a first-class feature (command/var/collection/file), not this.
@@ -332,7 +332,7 @@ class WebConsole {
   fs::File uploadFile_;  // single in-flight upload (one AP client assumed)
   int uploadIdx_ = -1;
 
-  // Cross-task state — guarded by the mutexes in WebConsole.cpp.
+  // Cross-task state, guarded by the mutexes in WebConsole.cpp.
   std::vector<Job> jobs_;
   std::vector<LogLine> logRing_;
   uint32_t logSeq_ = 0;
