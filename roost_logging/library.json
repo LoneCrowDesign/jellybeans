@@ -1,0 +1,32 @@
+{
+  "name": "RoostLogging",
+  "version": "0.1.0",
+  "description": "One CSV logging contract shared across a fleet of devices. Header-only. registry/ is the source, generated/roost_registry.h is the artifact, and runtime/ holds the shared row and manifest writer.",
+  "keywords": "logging, csv, contract, registry",
+  "authors": [
+    {
+      "name": "Lone Crow Design, LLC"
+    }
+  ],
+  "license": "MIT",
+  "frameworks": "*",
+  "platforms": "*",
+  "headers": "roost_registry.h",
+  "export": {
+    "include": [
+      "registry",
+      "runtime",
+      "generated",
+      "tools",
+      "tests",
+      "docs",
+      "LICENSE",
+      "README.md"
+    ]
+  },
+  "build": {
+    "includeDir": "generated",
+    "srcFilter": "-<*>",
+    "flags": ["-I runtime"]
+  }
+}

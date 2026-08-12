@@ -1,0 +1,167 @@
+{
+  "manifest_version": 2,
+  "files": [
+    {
+      "record": "wifi_obs",
+      "version": 2,
+      "format": "csv",
+      "name": "wifi_obs.v2.csv",
+      "columns": [
+        "timestamp_utc",
+        "uptime_ms",
+        "fix_seq",
+        "cap_component",
+        "obs_mode",
+        "mac",
+        "detection_method",
+        "frame_subtype",
+        "rssi",
+        "channel",
+        "band",
+        "ssid",
+        "addr1",
+        "addr2",
+        "addr3",
+        "seq",
+        "fc_flags",
+        "frame_len",
+        "bb_format",
+        "cap_info",
+        "beacon_interval",
+        "ie_ids",
+        "vendor_ies"
+      ],
+      "capable_unrecorded": [
+        "auth_mode"
+      ]
+    },
+    {
+      "record": "gps_track",
+      "version": 1,
+      "format": "csv",
+      "name": "gps_track.v1.csv",
+      "columns": [
+        "timestamp_utc",
+        "uptime_ms",
+        "fix_seq",
+        "cap_component",
+        "position_source",
+        "lat",
+        "lon",
+        "alt_m",
+        "speed_mps",
+        "course_deg",
+        "hdop",
+        "sats",
+        "fix_type",
+        "fix_age_ms"
+      ],
+      "capable_unrecorded": []
+    },
+    {
+      "record": "device_event",
+      "version": 1,
+      "format": "csv",
+      "name": "device_event.v1.csv",
+      "columns": [
+        "timestamp_utc",
+        "uptime_ms",
+        "fix_seq",
+        "cap_component",
+        "event_kind",
+        "event_count",
+        "event_detail"
+      ],
+      "capable_unrecorded": []
+    },
+    {
+      "record": "config_change",
+      "version": 1,
+      "format": "csv",
+      "name": "config_change.v1.csv",
+      "columns": [
+        "timestamp_utc",
+        "uptime_ms",
+        "fix_seq",
+        "cap_component",
+        "setting",
+        "value"
+      ],
+      "capable_unrecorded": []
+    },
+    {
+      "record": "operator_mark",
+      "version": 1,
+      "format": "csv",
+      "name": "operator_mark.v1.csv",
+      "columns": [
+        "timestamp_utc",
+        "uptime_ms",
+        "fix_seq",
+        "cap_component"
+      ],
+      "capable_unrecorded": []
+    }
+  ],
+  "identity": {
+    "registry_hash": "c280d1f75e91ee8caf22a72c41a6e6c17f6b327201b8bb5b3d6dd979c624ef98",
+    "device_model": "bscope_analyze",
+    "device_serial": "sn-0001",
+    "hw_revision": "HWr0.1",
+    "fw_version": "v1.0.0",
+    "built_at": "2025-12-15 00:00:00"
+  },
+  "hardware": {
+    "own_macs": [
+      "00:00:5e:00:53:00",
+      "00:00:5e:00:53:01"
+    ],
+    "gnss_cep_m": 2.5,
+    "components": [
+      {
+        "id": "wifi0",
+        "kind": "wifi",
+        "part": "ESP32-S3",
+        "bands": [
+          "2.4"
+        ]
+      },
+      {
+        "id": "gnss0",
+        "kind": "gnss",
+        "part": "ATGM336",
+        "bands": null
+      },
+      {
+        "id": "sys",
+        "kind": "system",
+        "part": null,
+        "bands": null
+      }
+    ]
+  },
+  "session": {
+    "session_id": "bscope-1-1-26-1",
+    "sequence": 2,
+    "boot_count": 12,
+    "started_utc": "2026-01-01T12:00:00Z",
+    "ended_utc": "2026-01-01T13:45:00Z",
+    "clock_source": "gps",
+    "clock_anchor_unix": 1767268841,
+    "clock_anchor_uptime_ms": 41180
+  },
+  "capture": {
+    "oui_table_hash": "0a1b2c3d",
+    "dedup_policy": null,
+    "storage_tier": "sd",
+    "ie_table_hash": null
+  },
+  "counters": {
+    "observations_written": 1024,
+    "observations_suppressed": 0,
+    "observations_dropped": 0,
+    "fixes_written": 105,
+    "storage_errors": 0,
+    "worst_flush_ms": 18
+  }
+}

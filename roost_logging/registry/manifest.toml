@@ -1,0 +1,160 @@
+# Session manifest keys.
+#
+# The manifest is the artifact that tells the pipeline how to read a capture
+# instead of making it guess. It has two halves and they are maintained very
+# differently.
+#
+# The CONTRACT half, which files the session produced with their record types,
+# versions, and columns, is not defined here at all. It is derived from
+# records.toml plus the device's declared field mask, and rendered by generated
+# code. Nothing about it is hand-written, because a hand-written copy of a
+# derivable fact is the drift this project exists to remove.
+#
+# The PROVENANCE half is defined below. It cannot be derived, because it is what
+# the device did rather than what it is. But its key names are registry-defined
+# so that separate devices do not invent separate spellings of the same fact.
+#
+# `tier` has three values:
+#   build    invariant for this binary on this board
+#   session  invariant for this capture, not the next
+#   runtime  can change mid-capture
+#
+# Runtime-tier keys are NOT manifest keys. They are declared here because this
+# is where capture configuration is defined, but the generator routes them into
+# config_change's `setting` vocabulary instead of into the manifest schema. A
+# setting that can change mid-capture is not session-invariant, so it was
+# never a manifest fact; declaring it here and emitting it there is one
+# definition with a destination chosen by tier, not two definitions.
+#
+# `required` keys must be present in every manifest. A device that cannot supply
+# one writes null rather than omitting the key, so a missing key is always an
+# error and never an ambiguity.
+#
+# See docs/design_spec.md.
+
+# 2: the `files` array gained a second shape. A raw capture file declares
+# linktype, snaplen and timebase instead of a record version and columns, and
+# `device_diagnostics` was added as the one place a device may write counters
+# the contract does not define. Before this a device producing a pcap had
+# nowhere to declare it: the generator rendered a pcap entry and the schema
+# rejected it, leaving a producer no valid way to describe the file.
+#
+# An envelope change rather than a registry one, but it moves the hash for the
+# same reason everything else here does: a reader validating against the old
+# schema rejects a manifest written to the new one.
+manifest_version = 2
+
+# Which revision of the text encoding the writer applies. Not a manifest key:
+# it is folded into the registry hash, so a build that encodes text one way and
+# a build that encodes it another cannot both claim the same registry.
+#
+# The hash is otherwise a fingerprint of the registry STRUCTURE, and encoder
+# behaviour lives in the generator rather than in any TOML. Without this, a
+# change to how a byte reaches the wire would leave the hash untouched, and a
+# consumer would have no way to tell which decode rule applies to a file, which
+# is the ambiguity the hash exists to remove.
+#
+# 1: C0 and DEL escaped as \xNN, backslash doubled, every other byte raw.
+# 2: additionally, any byte not part of a well-formed shortest-form UTF-8
+#    sequence is escaped the same way, so a text column is valid UTF-8.
+text_encoding_rev = 2
+
+# ---------------------------------------------------------------------------
+
+[[section]]
+name = "identity"
+tier = "build"
+description = "What produced this capture. Enough to attribute a session to a build and reproduce it."
+keys = [
+  { name = "registry_hash",  type = "text", required = true, description = "Fingerprint of the registry this firmware was generated against. Identifies exactly which fields existed when the capture was taken, which is what makes additive registry growth traceable without a version bump." },
+  { name = "device_model",   type = "text", required = true, description = "Which device this is, e.g. scan_logger, bscope_analyze, bscope_wardriver. Matches the `devices` list in records.toml." },
+  { name = "device_serial",  type = "text", required = true, description = "Which physical unit. Null where the hardware has no stable identifier. Two units of the same model can differ in calibration and antenna, so the model alone is not enough to attribute a measurement." },
+  { name = "hw_revision",    type = "text", required = true, description = "Board revision, e.g. HWr0.1." },
+  { name = "fw_version",     type = "text", required = true, description = "git describe, or a build string." },
+  { name = "built_at",       type = "text", required = true, description = "Compile timestamp." },
+]
+
+[[section]]
+name = "hardware"
+tier = "build"
+description = """
+Immutable properties of the parts fitted. These are the constants a consumer \
+would otherwise have to assume, and an assumed constant hardcoded in a consumer \
+is wrong for every device it was not measured on."""
+keys = [
+  { name = "own_macs",         type = "list", required = true, description = "Every MAC this device transmits from, across all radios. Required because co-located devices log each other continuously at zero metres, which reads as a co-location cluster if not excluded at import." },
+  { name = "components",       type = "struct_list", required = true, description = "Every capture component fitted. The declared set that `cap_component` on each row references: a row naming a component absent from this list is an ingest error. Only immutable facts appear here. What a component is currently responsible for, which band it is tuned to, and which mode it is in are runtime-variable and ride on config_change rows keyed by the same id. Antenna is deliberately absent: firmware cannot read what is attached, so a declared value would be a hand-maintained constant that goes stale on the first swap.", items = [
+      { name = "id",   type = "text", required = true, description = "Device-scoped identifier, stable for this build. Written verbatim into every row's cap_component." },
+      { name = "kind", type = "enum", enum = "component_kind", required = true, description = "What the part is. The axis on which components are comparable across devices." },
+      { name = "part", type = "text", required = true, description = "Part number or module name, e.g. ATGM336 or ESP32-C5. Null where the part has no meaningful designation, as for the system component." },
+      { name = "bands", type = "list", enum = "band", required = true, description = "Bands this component's radio can reach at all. Immutable, and distinct from the channels it is currently tuned to, which are runtime and live in config_change. Without it, a session with no 5 GHz rows is undecidable between a radio that cannot reach the band and one that was never tuned there, which is exactly the distinction the contract exists to preserve: an absent column means uncapturable, a present-but-empty one means uncaptured. Null on a non-radio component. Per component rather than per device: on a two-radio build one radio may be 5 GHz only while the other reaches both." },
+  ] },
+  { name = "gnss_cep_m",       type = "f32",  required = true, description = "The module's nominal circular error probable, in metres. Half of what a per-fix accuracy estimate is computed from, the other half being each row's hdop; the estimate is derived at ingest rather than on the device. A floor rather than a value: real per-fix accuracy is usually worse than the nominal figure, so substituting this constant for the per-fix figure imports a bad fix as a good one." },
+]
+
+[[section]]
+name = "session"
+tier = "session"
+description = "Identity and timing of this capture."
+keys = [
+  { name = "session_id",        type = "text", required = true, description = "Device-local session identity, unique on this device. Not globally unique: runs spanning several devices are grouped at import, because devices in the field share no link to agree on an identifier." },
+  { name = "sequence",          type = "u32",  required = true, description = "The N in a dated session directory, from 1." },
+  { name = "boot_count",        type = "u32",  required = true, description = "Boots since the device was first used. Disambiguates a uptime_ms wrap, which occurs after about 49.7 days, from a reboot." },
+  { name = "started_utc",       type = "text", required = true, description = "Wall-clock start. Null when the clock never anchored, which is a real state and not an error." },
+  { name = "ended_utc",         type = "text", required = true, description = "Wall-clock end, written at the final manifest rewrite. Null on a session that lost power, which is itself the signal that it did." },
+  { name = "clock_source",      type = "enum", enum = "clock_source", required = true, description = "What anchored the clock." },
+  { name = "clock_anchor_unix", type = "u32",  required = true, description = "Unix time at the anchor moment. Null if never anchored." },
+  { name = "clock_anchor_uptime_ms", type = "u32", required = true, description = "uptime_ms at that same moment. With the pair above, any row's wall-clock time is anchor_unix + (uptime_ms - anchor_uptime_ms), so rows written before the anchor are placeable retroactively rather than dropped." },
+]
+
+[[section]]
+name = "capture"
+tier = "session"
+description = """
+Capture facts that cannot change once the session has started. Everything the \
+device can retune at runtime is runtime tier and lives in config_change."""
+keys = [
+  { name = "oui_table_hash",type = "text", required = true, description = "Fingerprint of the compiled target OUI table. Captures either side of a table change are not comparable. Compiled in, so it cannot change mid-session." },
+  { name = "ie_table_hash", type = "text", required = true, description = "Fingerprint of the compiled IE-matcher table, or null on a build with no IE matching. Same role as oui_table_hash: an IE fingerprint used as a matcher is firmware configuration, so captures either side of a table change are not comparable." },
+  { name = "dedup_policy",  type = "text", required = true, description = "How repeat observations of one device are suppressed, or null for none. A fixed-size MAC ring with no time bound, for example, makes rows first-contact-within-a-sliding-window rather than a census, and makes the re-log rate a function of local device density. Stating it is what stops a consumer counting rows as devices." },
+  { name = "storage_tier",  type = "text", required = true, description = "Where this session was written, e.g. sd or spiffs. Boot-determined and fixed for the session: the same firmware on the same board emits a sparser set with no card inserted." },
+]
+
+[[section]]
+name = "runtime"
+tier = "runtime"
+description = """
+Settings the device can change mid-capture. These are NOT manifest keys; the \
+generator turns them into config_change's `setting` vocabulary.
+
+Every one is recorded at boot with its initial value, so config_change alone \
+answers what the device was doing at any instant and no reader needs the \
+manifest to interpret the first interval."""
+keys = [
+  { name = "obs_mode",      type = "enum", enum = "obs_mode", required = true, description = "Capture mode of the radio. Also present per row on every observation, which is deliberate: the per-row copy makes a row self-describing, and this one makes an interval with no observations provable." },
+  { name = "channels",      type = "list", required = true, description = "Channels being visited. The direct answer to what was reachable, and the one absence reasoning should lean on: a device never heard on a channel it never tuned." },
+  { name = "country_code",  type = "text", required = true, description = "Regulatory domain. Explains why the channel list looks the way it does; on the default 01 the radio cannot tune above channel 64. Recorded rather than relied on, because the same code produces different effective ceilings on different radios, so `channels` is the field to reason from." },
+  { name = "dwell_ms",      type = "u32",  required = true, description = "Time per channel. Detection counts and per-channel duty cycle are not comparable across a change to this, so any change to it is a comparability boundary." },
+  { name = "scan_period_ms",type = "u32",  required = true, description = "Milliseconds between scan sweeps, for obs_mode = scan. Bounds how stale a scan-mode timestamp can be relative to actual reception. Null in promiscuous mode." },
+  { name = "vendor_mask",   type = "list", required = true, description = "Which target vendors are being matched, by name. A session containing no Axon rows may mean Axon was masked out rather than absent; without this the two are indistinguishable after the fact. A list rather than text because text is too weak to make one setting mean one thing: a name list such as `flock,axon,axis,utility` and a hex bitmask such as `0xff` both satisfy a `text` type while meaning different things. Names rather than a mask because the bit assignments live in a device header and are not fleet-wide, so a mask is unreadable without the build that wrote it. An empty value means nothing is being matched, which is a different capture from every vendor being matched and must not render as a word." },
+  { name = "filters",       type = "map",  required = true, description = "Rate-limit and suppression parameters in effect. A capture that does not record these cannot be compared against one that used different values, and the drop counters are meaningless without them." },
+]
+
+[[section]]
+name = "counters"
+tier = "session"
+description = """
+A snapshot, rewritten periodically, so a session that loses power still leaves \
+the most recent one on the card.
+
+These are what separate a quiet capture from a truncated one. Without them a \
+device that filled its buffers and discarded most of what it heard produces a \
+file indistinguishable from one taken somewhere with nothing to hear."""
+keys = [
+  { name = "observations_written",   type = "u32", required = true, description = "Rows successfully written across all observation record types." },
+  { name = "observations_suppressed",type = "u32", required = true, description = "Observations discarded by a declared filter or dedup policy. Expected, and interpretable only against `filters` and `dedup_policy`." },
+  { name = "observations_dropped",   type = "u32", required = true, description = "Observations lost to backpressure, a full buffer, or a failed write. Never expected. Non-zero means the capture is incomplete by an amount this number bounds." },
+  { name = "fixes_written",          type = "u32", required = true, description = "gps_track rows written. With observations_written it gives the position coverage of the session at a glance." },
+  { name = "storage_errors",         type = "u32", required = true, description = "Failed writes. A device that stops logging after a failure leaves this counter as the only durable evidence of the loss." },
+  { name = "worst_flush_ms",         type = "u32", required = true, description = "Longest single flush. The leading indicator of a card about to start dropping, visible before observations_dropped moves." },
+]

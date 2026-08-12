@@ -1,0 +1,439 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Birdoscope ecosystem session manifest",
+  "description": "GENERATED from registry/*.toml. Do not edit.",
+  "x-registry-hash": "c280d1f75e91ee8caf22a72c41a6e6c17f6b327201b8bb5b3d6dd979c624ef98",
+  "type": "object",
+  "required": [
+    "manifest_version",
+    "files",
+    "identity",
+    "hardware",
+    "session",
+    "capture",
+    "counters"
+  ],
+  "properties": {
+    "manifest_version": {
+      "type": "integer"
+    },
+    "files": {
+      "type": "array",
+      "description": "Contract half. Derived from the registry and the device's declared masks, never hand-written. Holds every file the session produced, record-bearing or not, so a reader has one list to walk rather than one list plus a set of special cases.",
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "description": "A record-bearing CSV.",
+            "required": [
+              "record",
+              "version",
+              "format",
+              "name",
+              "columns"
+            ],
+            "properties": {
+              "record": {
+                "type": "string"
+              },
+              "version": {
+                "type": "integer"
+              },
+              "format": {
+                "type": "string",
+                "enum": [
+                  "csv"
+                ]
+              },
+              "name": {
+                "type": "string"
+              },
+              "columns": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Columns this file carries. An empty value in a row means uncaptured."
+              },
+              "capable_unrecorded": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Fields the hardware can measure that this configuration does not record. A field in neither list is uncapturable."
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "description": "A raw capture file. Carries no rows, so it declares how to read the bytes instead of what the columns are.",
+            "required": [
+              "record",
+              "format",
+              "name",
+              "linktype",
+              "snaplen",
+              "timebase"
+            ],
+            "properties": {
+              "record": {
+                "type": "string"
+              },
+              "format": {
+                "type": "string",
+                "enum": [
+                  "pcap"
+                ]
+              },
+              "name": {
+                "type": "string"
+              },
+              "linktype": {
+                "type": "integer"
+              },
+              "snaplen": {
+                "type": "integer"
+              },
+              "timebase": {
+                "type": "string",
+                "enum": [
+                  "boot",
+                  "utc"
+                ],
+                "description": "What the record timestamps mean. 'boot' is monotonic from power-on and is placed by the manifest's clock anchor, exactly as a row's uptime_ms is. 'utc' is seconds since the epoch for the whole file. A reader must not infer from this whether the session's clock anchored."
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      }
+    },
+    "device_diagnostics": {
+      "type": "object",
+      "description": "Device-specific counters. Outside the contract: readers may display these but must not depend on any key being present or keeping its meaning.",
+      "additionalProperties": true
+    },
+    "identity": {
+      "type": "object",
+      "description": "What produced this capture. Enough to attribute a session to a build and reproduce it. (tier: build)",
+      "required": [
+        "registry_hash",
+        "device_model",
+        "device_serial",
+        "hw_revision",
+        "fw_version",
+        "built_at"
+      ],
+      "properties": {
+        "registry_hash": {
+          "description": "Fingerprint of the registry this firmware was generated against. Identifies exactly which fields existed when the capture was taken, which is what makes additive registry growth traceable without a version bump.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "device_model": {
+          "description": "Which device this is, e.g. scan_logger, bscope_analyze, bscope_wardriver. Matches the `devices` list in records.toml.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "device_serial": {
+          "description": "Which physical unit. Null where the hardware has no stable identifier. Two units of the same model can differ in calibration and antenna, so the model alone is not enough to attribute a measurement.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "hw_revision": {
+          "description": "Board revision, e.g. HWr0.1.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "fw_version": {
+          "description": "git describe, or a build string.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "built_at": {
+          "description": "Compile timestamp.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "hardware": {
+      "type": "object",
+      "description": "Immutable properties of the parts fitted. These are the constants a consumer would otherwise have to assume, and an assumed constant hardcoded in a consumer is wrong for every device it was not measured on. (tier: build)",
+      "required": [
+        "own_macs",
+        "components",
+        "gnss_cep_m"
+      ],
+      "properties": {
+        "own_macs": {
+          "description": "Every MAC this device transmits from, across all radios. Required because co-located devices log each other continuously at zero metres, which reads as a co-location cluster if not excluded at import.",
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "components": {
+          "description": "Every capture component fitted. The declared set that `cap_component` on each row references: a row naming a component absent from this list is an ingest error. Only immutable facts appear here. What a component is currently responsible for, which band it is tuned to, and which mode it is in are runtime-variable and ride on config_change rows keyed by the same id. Antenna is deliberately absent: firmware cannot read what is attached, so a declared value would be a hand-maintained constant that goes stale on the first swap.",
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "kind",
+              "part",
+              "bands"
+            ],
+            "properties": {
+              "id": {
+                "description": "Device-scoped identifier, stable for this build. Written verbatim into every row's cap_component.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "kind": {
+                "description": "What the part is. The axis on which components are comparable across devices.",
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "enum": [
+                  "wifi",
+                  "ble",
+                  "gnss",
+                  "system",
+                  null
+                ]
+              },
+              "part": {
+                "description": "Part number or module name, e.g. ATGM336 or ESP32-C5. Null where the part has no meaningful designation, as for the system component.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "bands": {
+                "description": "Bands this component's radio can reach at all. Immutable, and distinct from the channels it is currently tuned to, which are runtime and live in config_change. Without it, a session with no 5 GHz rows is undecidable between a radio that cannot reach the band and one that was never tuned there, which is exactly the distinction the contract exists to preserve: an absent column means uncapturable, a present-but-empty one means uncaptured. Null on a non-radio component. Per component rather than per device: on a two-radio build one radio may be 5 GHz only while the other reaches both.",
+                "type": [
+                  "array",
+                  "null"
+                ],
+                "items": {
+                  "enum": [
+                    "2.4",
+                    "5"
+                  ]
+                }
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "gnss_cep_m": {
+          "description": "The module's nominal circular error probable, in metres. Half of what a per-fix accuracy estimate is computed from, the other half being each row's hdop; the estimate is derived at ingest rather than on the device. A floor rather than a value: real per-fix accuracy is usually worse than the nominal figure, so substituting this constant for the per-fix figure imports a bad fix as a good one.",
+          "type": [
+            "number",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "session": {
+      "type": "object",
+      "description": "Identity and timing of this capture. (tier: session)",
+      "required": [
+        "session_id",
+        "sequence",
+        "boot_count",
+        "started_utc",
+        "ended_utc",
+        "clock_source",
+        "clock_anchor_unix",
+        "clock_anchor_uptime_ms"
+      ],
+      "properties": {
+        "session_id": {
+          "description": "Device-local session identity, unique on this device. Not globally unique: runs spanning several devices are grouped at import, because devices in the field share no link to agree on an identifier.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sequence": {
+          "description": "The N in a dated session directory, from 1.",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "boot_count": {
+          "description": "Boots since the device was first used. Disambiguates a uptime_ms wrap, which occurs after about 49.7 days, from a reboot.",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "started_utc": {
+          "description": "Wall-clock start. Null when the clock never anchored, which is a real state and not an error.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "ended_utc": {
+          "description": "Wall-clock end, written at the final manifest rewrite. Null on a session that lost power, which is itself the signal that it did.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "clock_source": {
+          "description": "What anchored the clock.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "gps",
+            "ntp",
+            "none",
+            null
+          ]
+        },
+        "clock_anchor_unix": {
+          "description": "Unix time at the anchor moment. Null if never anchored.",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "clock_anchor_uptime_ms": {
+          "description": "uptime_ms at that same moment. With the pair above, any row's wall-clock time is anchor_unix + (uptime_ms - anchor_uptime_ms), so rows written before the anchor are placeable retroactively rather than dropped.",
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "capture": {
+      "type": "object",
+      "description": "Capture facts that cannot change once the session has started. Everything the device can retune at runtime is runtime tier and lives in config_change. (tier: session)",
+      "required": [
+        "oui_table_hash",
+        "ie_table_hash",
+        "dedup_policy",
+        "storage_tier"
+      ],
+      "properties": {
+        "oui_table_hash": {
+          "description": "Fingerprint of the compiled target OUI table. Captures either side of a table change are not comparable. Compiled in, so it cannot change mid-session.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "ie_table_hash": {
+          "description": "Fingerprint of the compiled IE-matcher table, or null on a build with no IE matching. Same role as oui_table_hash: an IE fingerprint used as a matcher is firmware configuration, so captures either side of a table change are not comparable.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "dedup_policy": {
+          "description": "How repeat observations of one device are suppressed, or null for none. A fixed-size MAC ring with no time bound, for example, makes rows first-contact-within-a-sliding-window rather than a census, and makes the re-log rate a function of local device density. Stating it is what stops a consumer counting rows as devices.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "storage_tier": {
+          "description": "Where this session was written, e.g. sd or spiffs. Boot-determined and fixed for the session: the same firmware on the same board emits a sparser set with no card inserted.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "counters": {
+      "type": "object",
+      "description": "A snapshot, rewritten periodically, so a session that loses power still leaves the most recent one on the card.\n\nThese are what separate a quiet capture from a truncated one. Without them a device that filled its buffers and discarded most of what it heard produces a file indistinguishable from one taken somewhere with nothing to hear. (tier: session)",
+      "required": [
+        "observations_written",
+        "observations_suppressed",
+        "observations_dropped",
+        "fixes_written",
+        "storage_errors",
+        "worst_flush_ms"
+      ],
+      "properties": {
+        "observations_written": {
+          "description": "Rows successfully written across all observation record types.",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "observations_suppressed": {
+          "description": "Observations discarded by a declared filter or dedup policy. Expected, and interpretable only against `filters` and `dedup_policy`.",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "observations_dropped": {
+          "description": "Observations lost to backpressure, a full buffer, or a failed write. Never expected. Non-zero means the capture is incomplete by an amount this number bounds.",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "fixes_written": {
+          "description": "gps_track rows written. With observations_written it gives the position coverage of the session at a glance.",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "storage_errors": {
+          "description": "Failed writes. A device that stops logging after a failure leaves this counter as the only durable evidence of the loss.",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "worst_flush_ms": {
+          "description": "Longest single flush. The leading indicator of a card about to start dropping, visible before observations_dropped moves.",
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

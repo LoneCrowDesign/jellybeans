@@ -1,0 +1,226 @@
+# Enum vocabularies for the birdoscope ecosystem log contract.
+#
+# These are the closed value sets a field of type "enum" may carry. A value
+# not listed here is an error on both sides: firmware cannot emit it, because
+# the generated C header turns each vocabulary into an enum, and the
+# pipeline refuses it rather than coercing or preserving it.
+#
+# Adding a value is NOT a version bump. Renaming one, removing one, or
+# changing what it means is, and is the only breaking class.
+
+
+# ---------------------------------------------------------------------------
+
+[[enum]]
+name = "component_kind"
+description = """
+What a declared capture component is, for readers that need to classify one \
+across devices.
+
+Components themselves are identified by a device-scoped id rather than a \
+fleet-wide name, because the same role can be split across two physical \
+radios and a role name cannot say which of them stopped reporting. `kind` is \
+what survives that: it is a property of the part, not of what the part is \
+currently being asked to do.
+
+Deliberately coarse. Which band a radio is tuned to, which mode it is in, and \
+what it is responsible for are all runtime-variable and ride on config_change \
+rows keyed by component. Putting any of them here would state as build-invariant \
+something the device can change mid-session."""
+values = [
+  { name = "wifi",   description = "802.11 radio. Which band or bands it is serving is a runtime fact, not a property of the part." },
+  { name = "ble",    description = "Bluetooth Low Energy radio." },
+  { name = "gnss",   description = "Position receiver." },
+  { name = "system", description = "The device itself. Not a radio: carries boot, storage, operator and non-radio configuration rows." },
+]
+
+[[enum]]
+name = "obs_mode"
+description = """
+How the observation was captured. Load-bearing rather than descriptive: it \
+decides what a row means, what RSSI represents, and how precise the timestamp \
+is. Merging promiscuous and scan captures without it hides all three \
+differences."""
+values = [
+  { name = "promiscuous", description = "One row per received frame. RSSI is one instant's measurement; the timestamp is frame arrival." },
+  { name = "scan",        description = "One row per device present in a scan window. RSSI is the driver's summary over a dwell, averaging unspecified; the timestamp is scan completion, up to seconds after reception." },
+]
+
+[[enum]]
+name = "detection_method"
+description = """
+Why this observation was logged. Named for the address field that matched, so \
+it describes the matcher rather than the observation. Whether a match is direct, \
+and therefore whether its RSSI is usable for path-loss fitting, is a \
+consumer-side mapping rather than part of this vocabulary."""
+values = [
+  { name = "oui_addr1",      description = "A target OUI appeared in addr1, so the frame was addressed TO the target. Indirect: the RSSI describes the transmitter's link, not the target's." },
+  { name = "oui_addr2",      description = "A target OUI appeared in addr2, so the target transmitted the frame. Direct." },
+  { name = "oui_addr3",      description = "A target OUI appeared in addr3 as the BSSID. Indirect." },
+  { name = "ssid_match",     description = "SSID text matched a configured keyword. Named to avoid colliding with the `ssid` field." },
+  { name = "wildcard_probe", description = "A probe request carrying a zero-length SSID. Direct." },
+  { name = "directed_probe", description = "A probe request carrying a specific SSID. Direct. Split out of oui_addr2 because the probed SSID is evidence in its own right and is otherwise blanked for this case." },
+  { name = "ie_match",       description = "Matched a configured information-element fingerprint rather than an OUI. The OUI-independent path." },
+  { name = "ble_oui",        description = "A BLE advertisement whose address matched the tagged OUI table." },
+  { name = "ble_mfr",        description = "A BLE advertisement matching a configured manufacturer-data prefix." },
+  { name = "unmatched",      description = "Observed and logged but matched no rule. A collector retains unmatched traffic as data; a detector does not log it at all." },
+]
+
+[[enum]]
+name = "frame_subtype"
+description = """
+The 802.11 frame subtype the observation came from. Management subtypes are \
+enumerated individually because they carry different evidence; data and control \
+frames are bucketed, since nothing downstream distinguishes them today."""
+values = [
+  { name = "assoc_req",    description = "Management, subtype 0." },
+  { name = "assoc_resp",   description = "Management, subtype 1." },
+  { name = "reassoc_req",  description = "Management, subtype 2." },
+  { name = "reassoc_resp", description = "Management, subtype 3." },
+  { name = "probe_req",    description = "Management, subtype 4." },
+  { name = "probe_resp",   description = "Management, subtype 5." },
+  { name = "beacon",       description = "Management, subtype 8." },
+  { name = "atim",         description = "Management, subtype 9." },
+  { name = "disassoc",     description = "Management, subtype 10." },
+  { name = "auth",         description = "Management, subtype 11." },
+  { name = "deauth",       description = "Management, subtype 12." },
+  { name = "action",       description = "Management, subtype 13." },
+  { name = "data",         description = "Any data frame not otherwise distinguished." },
+  { name = "qos_data",     description = "QoS data frame." },
+  { name = "null_data",    description = "Null-function frame, carries no payload but does carry addresses." },
+  { name = "ctrl",         description = "Any control frame (RTS, CTS, ACK, block-ack)." },
+  { name = "unknown",      description = "Subtype was not recognised. Distinct from the field being empty, which means the device could not determine it." },
+]
+
+[[enum]]
+name = "band"
+description = "Radio band the observation was made on."
+values = [
+  { name = "2.4", description = "2.4 GHz, channels 1-14." },
+  { name = "5",   description = "5 GHz, U-NII-1 through U-NII-3. Note a device on country code 01 cannot tune above channel 64, so absence above it is a capture limit rather than an observation." },
+]
+
+[[enum]]
+name = "auth_mode"
+description = """
+Encryption advertised by an access point. Available free from a scan result; a \
+promiscuous capture must parse it from the beacon capability and RSN elements. \
+Values are the ESP-IDF's, lowercased and unbracketed. A producer's own \
+presentation, such as bracketing, is not inherited here."""
+values = [
+  { name = "open",           description = "No encryption." },
+  { name = "wep",            description = "WEP." },
+  { name = "wpa_psk",        description = "WPA personal." },
+  { name = "wpa2_psk",       description = "WPA2 personal." },
+  { name = "wpa_wpa2_psk",   description = "Mixed WPA/WPA2 personal." },
+  { name = "wpa2",           description = "Reported distinctly from wpa2_psk by some ESP-IDF versions, so both are kept rather than merged." },
+  { name = "wpa2_enterprise",description = "WPA2 with 802.1X." },
+  { name = "wpa3_psk",       description = "WPA3 personal." },
+  { name = "wpa2_wpa3_psk",  description = "Mixed WPA2/WPA3 personal." },
+  { name = "wapi_psk",       description = "WAPI personal." },
+  { name = "undefined",      description = "The radio reported a value it could not classify. Distinct from the field being empty, which means the device never captures this." },
+]
+
+[[enum]]
+name = "bb_format"
+description = "Baseband format the frame was carried in. Available only to a promiscuous capture."
+values = [
+  { name = "11b",     description = "802.11b DSSS/CCK." },
+  { name = "11g",     description = "802.11g OFDM." },
+  { name = "ht",      description = "802.11n." },
+  { name = "vht",     description = "802.11ac single-user." },
+  { name = "vht_mu",  description = "802.11ac multi-user." },
+  { name = "he_su",   description = "802.11ax single-user." },
+  { name = "he_mu",   description = "802.11ax multi-user." },
+  { name = "he_ersu", description = "802.11ax extended-range single-user." },
+  { name = "he_tb",   description = "802.11ax trigger-based." },
+]
+
+[[enum]]
+name = "ble_addr_type"
+description = """
+Whether a BLE address is a registered hardware address or a generated one. Taken \
+verbatim from the HCI advertising report, never derived.
+
+Load-bearing for classification. Inferring it from the address bytes cannot \
+settle the ambiguous case: OUI-registered hardware whose first byte falls in \
+0xC0-0xFF is indistinguishable from a static random address. Where this field is \
+present the inference is unnecessary."""
+values = [
+  { name = "public", description = "IEEE-registered address. The OUI is meaningful and the device is trackable across sessions." },
+  { name = "random", description = "Generated address. May be static, resolvable private, or non-resolvable private; the sub-type is derived from the address bytes and is a pipeline concern, deliberately not duplicated in firmware." },
+]
+
+[[enum]]
+name = "ble_pdu_type"
+description = "Advertising PDU type, which says what the advertiser was willing to accept and whether the payload can be trusted to be complete."
+values = [
+  { name = "adv_ind",         description = "Connectable, scannable, undirected." },
+  { name = "adv_direct_ind",  description = "Connectable, directed at one peer." },
+  { name = "adv_scan_ind",    description = "Scannable, undirected, not connectable." },
+  { name = "adv_nonconn_ind", description = "Neither connectable nor scannable. Beacon-style broadcast." },
+  { name = "scan_rsp",        description = "Response to a scan request. Only appears when the scanner was in active mode, which is why active_scan rides alongside it." },
+  { name = "ext_adv_ind",     description = "Extended advertising PDU (5.0+). The payload may continue in auxiliary packets." },
+  { name = "unknown",         description = "The controller reported a type not in this list. Distinct from the field being empty, which means the device does not report one." },
+]
+
+[[enum]]
+name = "ble_phy"
+description = "Physical layer an advertisement was carried on. Determines range and which scanners could have heard it at all, so it bounds what absence means."
+values = [
+  { name = "1m",    description = "LE 1M, the mandatory PHY. Every scanner can hear it." },
+  { name = "2m",    description = "LE 2M. Higher rate, shorter range, secondary channels only." },
+  { name = "coded", description = "LE Coded, long range. A scanner not listening on Coded will miss these entirely, which is a capture limit rather than an absence of devices." },
+]
+
+[[enum]]
+name = "fix_type"
+description = "Quality of a GNSS fix, as reported by the module."
+values = [
+  { name = "none", description = "No fix. The position fields on this row are empty." },
+  { name = "2d",   description = "Horizontal fix only; altitude is not trustworthy." },
+  { name = "3d",   description = "Full fix." },
+  { name = "dgps", description = "Differentially corrected fix." },
+]
+
+[[enum]]
+name = "position_source"
+description = """
+Where a position came from. Required on every gps_track row: without it, \
+different sources land in one pair of coordinate columns with no way to tell \
+them apart. This varies per fix, so it is a field and cannot be a manifest \
+declaration."""
+values = [
+  { name = "device_fix",      description = "A live fix from this device's own GNSS receiver. The only source that is a measurement of where the device was at that moment." },
+  { name = "device_stale",    description = "This device's last known fix, re-reported because the current one is invalid. fix_age_ms says how old. Not a measurement of the present position." },
+  { name = "cell_tower",      description = "Trilaterated from cellular towers. Accuracy is whatever the provider reported and is typically orders of magnitude worse than GNSS." },
+  { name = "operator_forced", description = "Manually pinned by the operator. Exact by assertion rather than by measurement, so it must never be weighted as the most accurate source." },
+  { name = "none",            description = "No position available. Coordinate fields are empty. Not a coordinate, and never a zero." },
+]
+
+[[enum]]
+name = "clock_source"
+description = "What anchored the device clock. Recorded in the manifest, not per row."
+values = [
+  { name = "gps",  description = "GNSS time. Preferred where available." },
+  { name = "ntp",  description = "Network time, from a saved WiFi network at boot." },
+  { name = "none", description = "Never anchored. Every row in the session carries uptime_ms only, and timestamp_utc is empty throughout." },
+]
+
+[[enum]]
+name = "device_event_kind"
+description = """
+Device-level events that are not observations. Exists so a write failure or a \
+dropped-frame burst is a recorded fact rather than an unretained serial \
+message. A truncated capture must not read as a quiet one."""
+values = [
+  { name = "boot",             description = "Device started. Carries firmware version and reset reason." },
+  { name = "clock_anchored",   description = "The clock acquired an anchor. Everything before this row has an empty timestamp_utc and is placeable only through uptime_ms." },
+  { name = "storage_error",    description = "A write failed. A device that stops logging after a failure without recording the event loses data silently." },
+  { name = "storage_recovered",description = "Writing resumed after a storage_error." },
+  { name = "buffer_full",      description = "An in-memory table or ring filled and observations were discarded. Carries the count." },
+  { name = "config_error",     description = "A configuration file was missing or unparseable and a default was substituted." },
+  { name = "clock_synced",     description = "A processor other than the one that owns storage locked onto the session clock, and may now emit rows. Distinct from clock_anchored, which is the WALL clock: this one says whose millis() a row's uptime_ms is on, and until it happens that processor has no session time and writes nothing. Absent from a single-processor session." },
+  { name = "vocabulary_error", description = "This build produced a value that is not in the registry's vocabulary for the column it was written to, so the column was left empty. A defect in the build rather than a fact about the environment: a producer and the registry have drifted. event_detail names the record and field." },
+  { name = "shutdown",         description = "Orderly shutdown. Absence of this row at the end of a session means the device lost power." },
+]

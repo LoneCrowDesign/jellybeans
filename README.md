@@ -31,6 +31,7 @@ baseline) lives in [design.md](design.md). Read it before adding a bean.
 | Bean | What it is |
 |---|---|
 | [`esp_webserver`](esp_webserver) | Schema-driven async web console with standard functions builtin |
+| [`roost_logging`](roost_logging) | One CSV logging contract shared across a fleet of devices, generated from a registry |
 
 ## Building
 
@@ -42,6 +43,13 @@ cd esp_webserver/examples/basic
 pio run
 ```
 
+A contract bean has no example sketch to build. It verifies itself instead:
+
+```bash
+cd roost_logging
+./tests/run.sh
+```
+
 The example references the library in place, so it compiles the working tree.
 Each example targets one board. `esp_webserver`'s is an ESP32-S3 with PSRAM, so
 a clean build covers that configuration; on boards without PSRAM, RAM is the
@@ -51,3 +59,22 @@ Adopting a bean requires the pioarduino `platform-espressif32` fork and the
 ESP32Async forks of `ESPAsyncWebServer` / `AsyncTCP`; the original `me-no-dev`
 repos do not build against it. Each bean pins its dependency versions in
 `library.json`.
+
+## Licensing
+
+There is no repository-wide license. Each bean is licensed independently, and
+adopting one carries only that bean's terms. [LICENSE.md](LICENSE.md) says the
+same and is a pointer rather than a grant:
+
+| Bean | License | Text |
+|---|---|---|
+| `esp_webserver` | GPL-3.0-or-later | [esp_webserver/LICENSE](esp_webserver/LICENSE) |
+| `roost_logging` | MIT | [roost_logging/LICENSE](roost_logging/LICENSE) |
+
+Each bean also declares its license in its `library.json`, and its source files
+carry the matching header. Take the bean's own `LICENSE` as authoritative.
+
+This is deliberate rather than an oversight. A single umbrella license would
+force every bean to the most restrictive terms in the collection, which would
+deny an MIT-only build to beans meant to be adopted freely. Adding a bean means
+adding its `LICENSE` and a row here.

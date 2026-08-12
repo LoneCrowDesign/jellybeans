@@ -1,0 +1,138 @@
+# Capabilities: what a build can measure, declared at compile time.
+#
+# This is what makes the capability mask derived rather than hand-written. A
+# field is gated on the capabilities that could produce it, and the generated
+# header computes each record type's capable mask from the macros below using
+# the preprocessor. Nothing about the mask is maintained by hand, so a board
+# with an SD card and one without differ only in their board_config.h and
+# the manifest follows automatically.
+#
+# Each board defines every macro as 0 or 1. It does NOT have to rename anything
+# it already has: the registry cannot know that one board says HAS_GPS, another
+# uses its own prefixed macros, and a third has no such macro at all, so each
+# board supplies a one-line mapping.
+#
+#     // bscope_analyze/board_config.h
+#     #define ROOST_CAP_GNSS             HAS_GPS
+#     #define ROOST_CAP_WIFI             1
+#     #define ROOST_CAP_WIFI_PROMISCUOUS 1
+#     #define ROOST_CAP_TARGET_MATCH     1
+#     #define ROOST_CAP_STORAGE          USE_SD
+#     ...
+#
+# An undefined macro is a compile error, never a default of 0. Defaulting would
+# mean that adding a capability here silently shrinks every existing board's
+# mask, and a silently shrinking mask is a capture quietly recording less than
+# it could. Adding a capability instead forces each board to answer yes or no.
+#
+# Capabilities describe what the HARDWARE AND BUILD can do. What a given session
+# actually records is narrower and is the `columns` half of a file declaration;
+# a board that can reach a field but chooses not to record it says so
+# through ROOST_<RECORD>_EXCLUDE.
+#
+# A CAPABILITY IS NOT A MODE. This is the distinction the list below is easiest
+# to get wrong, because several capabilities are named after a mode. A
+# capability says what this build can produce across every mode it can enter;
+# which mode is active right now is runtime state, and it rides on the required
+# `obs_mode` field on each observation row plus a `config_change` row at each
+# switch.
+#
+# So a device that can switch between promiscuous and scan declares BOTH
+# capabilities. Its wifi_obs file carries the union of the two column sets, and
+# each row's obs_mode says which mode produced it; the columns the other mode
+# would have filled are simply empty: an absent column means the value was
+# uncapturable and a present-but-empty one means it was uncaptured, so no
+# further machinery is needed. Declaring only the mode a device happens
+# to boot into would make a mid-session switch either change the file's header
+# or silently discard the columns the new mode can reach; a runtime
+# configuration change never changes which columns exist, so the first of those
+# is unimplementable.
+#
+# The test is "could this build ever emit that column", not "is it emitting it
+# now". Note this is a question about the BUILD, not about the silicon: nearly
+# any Wi-Fi part can technically scan, but a build with no scan path cannot
+# produce a scan row, and declaring otherwise would put a permanently empty
+# auth_mode in the file, asserting the radio had nothing to report when nothing
+# was actually asking for it.
+#
+# See docs/design_spec.md.
+
+[[capability]]
+name = "gnss"
+macro = "ROOST_CAP_GNSS"
+description = "The build reads a fitted GNSS receiver. Gates every position field and the gps_track record entirely."
+
+[[capability]]
+name = "storage"
+macro = "ROOST_CAP_STORAGE"
+description = """
+The build writes to persistent storage at all. Note this is the compile-time \
+half only: whether a card is actually inserted is a boot-time fact, and narrows \
+the mask again at runtime. A device writing to internal flash versus the same \
+firmware with a card fitted is exactly this distinction."""
+
+[[capability]]
+name = "wifi"
+macro = "ROOST_CAP_WIFI"
+description = """
+The build has a Wi-Fi capture path. Gates the wifi_obs record. Fitted silicon is \
+not sufficient: a board whose Wi-Fi radio is present but which this build never \
+captures from declares 0, or the session carries a wifi_obs file asserting that \
+nothing was heard when the truth is that nothing listened."""
+
+[[capability]]
+name = "wifi_promiscuous"
+macro = "ROOST_CAP_WIFI_PROMISCUOUS"
+description = """
+The build can capture raw 802.11 frames rather than parsed scan results. Gates \
+every frame-layer field, because a scan result has already discarded the frame \
+by the time firmware sees it. Not a statement about which mode is active: a \
+build that can also scan declares wifi_scan as well, and obs_mode on each row \
+says which of them produced it."""
+
+[[capability]]
+name = "wifi_scan"
+macro = "ROOST_CAP_WIFI_SCAN"
+description = """
+The build has a driver-scanning path. Gates auth_mode, which a scan returns \
+already parsed. Declare it if the build can ever scan, not only if it is \
+scanning today. A build with no scan path at all must not declare it, or \
+auth_mode becomes a permanently empty column asserting that the radio had \
+nothing to report when the truth is that nothing ever asked it."""
+
+[[capability]]
+name = "ie_parse"
+macro = "ROOST_CAP_IE_PARSE"
+description = "The build parses beacon information elements. The promiscuous route to auth_mode, cap_info, beacon_interval, ie_ids and vendor_ies."
+
+[[capability]]
+name = "ble"
+macro = "ROOST_CAP_BLE"
+description = """
+The build has a BLE capture path. Gates the ble_obs record. Fitted silicon is not \
+sufficient, and this is the capability where that bites: most parts carry a BLE \
+radio, so a board with no BLE capture mode implemented declares 0 until one \
+exists. Declaring it early puts an empty ble_obs file in every session, which \
+asserts BLE was reachable and nothing was heard."""
+
+[[capability]]
+name = "ble_promiscuous"
+macro = "ROOST_CAP_BLE_PROMISCUOUS"
+description = """
+The build can see raw advertising PDUs rather than a stack's parsed device \
+objects. Gates the PDU-layer BLE fields. Reach rather than current mode, as \
+with wifi_promiscuous; BLE's active-versus-passive scan setting is a separate, \
+per-row fact carried by active_scan."""
+
+[[capability]]
+name = "target_match"
+macro = "ROOST_CAP_TARGET_MATCH"
+description = """
+The build matches observations against a target table. Gates detection_method: \
+a device that logs everything it hears has no matcher and therefore no answer \
+to 'why was this logged', which is different from answering 'unmatched'."""
+
+[[capability]]
+name = "operator_mark"
+macro = "ROOST_CAP_OPERATOR_MARK"
+description = "The build has an operator control that marks a place and time. Gates the operator_mark record."

@@ -2,3 +2,9 @@
 **/.vscode/
 .claude/
 TODO.md
+CLAUDE.md
+
+# Per-bean working notes
+**/working/
+**/__pycache__/
+

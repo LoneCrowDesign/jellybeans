@@ -1,0 +1,47 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+Keep it about the repo. Bean-specific detail does not scale here; it belongs in that bean's README.
+
+## What this repo is
+
+A collection of "jellybeans": self-contained, drop-in PlatformIO libraries for ESP32 / embedded projects. Each bean lives in its own top-level subdirectory and is independently adoptable. There is no top-level build; the repo is a container, not an application.
+
+Beans are consumed two ways: copied into a host project's `lib/`, or referenced in place with `lib_extra_dirs = /path/to/jellybeans`. Contract beans are the exception and must be referenced in place, never copied.
+
+`design.md` holds the reasoning behind the shared conventions. Read it before adding a bean.
+
+## Build and verify
+
+There is no top-level build and no repo-wide test suite. Each bean verifies itself, and how depends on its shape.
+
+A library bean builds through its own example, which points at the bean via `lib_extra_dirs = ${PROJECT_DIR}/../..` so it compiles the working tree rather than an installed copy:
+
+```bash
+cd <bean>/examples/basic
+pio run                        # compile
+pio run -t upload -t monitor   # flash + serial monitor
+```
+
+A contract bean generates its artifacts from a source of truth and owns a test entry point that regenerates and diffs them:
+
+```bash
+cd roost_logging
+./tests/run.sh                 # requires python3 3.11+ and a C++17 compiler
+```
+
+## Platform constraints
+
+- The pioarduino `platform-espressif32` fork is required (Arduino-ESP32 3.x / IDF 5.x). Not the mainline platform.
+- Async dependencies must be the ESP32Async forks (`ESPAsyncWebServer`, `AsyncTCP`). The original `me-no-dev` repos do not build here.
+- C++17 is assumed (nested-namespace syntax). Untested under the Arduino IDE.
+- Pin dependency versions in each bean's `library.json`.
+- Each bean carries its own license. There is no repository-wide license: a bean ships a `LICENSE`, declares it in `library.json`, repeats it in each source file header, and gets a row in the root README's licensing table. `esp_webserver` is GPL-3.0-or-later; `roost_logging` is MIT.
+
+## Shared conventions across beans
+
+- **Namespace:** one umbrella `jelly`, each bean nested under it: `jelly::<bean>::…` (e.g. `jelly::webconsole::WebConsole`). A bean whose API is macro-based cannot use it, and uses a unique symbol prefix instead.
+- **Globally unique names:** header filenames (`WebConsole.h`, not `Console.h`) and `library.json` names. The include path is a flat global namespace, so beans must not collide when a project adopts several.
+- **Examples and docs:** each library bean ships a buildable `examples/` sketch that compiles the library in place, and a README covering its API and wire contract. A contract bean ships its test suite in place of the sketch.
+- **Concurrency posture:** beans wrapping callback-driven libraries keep host handlers out of framework task contexts by default, rather than exporting the framework's threading model to every adopter.

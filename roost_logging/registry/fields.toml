@@ -1,0 +1,580 @@
+# Field definitions for the birdoscope ecosystem log contract.
+#
+# One definition per field name, fleet-wide. A field name means the same thing,
+# in the same units, in the same format, on every device and in every record
+# type that uses it. Devices differ in which fields they populate, never in
+# what a field means.
+#
+# Adding a field here is additive and breaks nothing. Renaming one, removing
+# one, or changing its type, units, or meaning is the only breaking class, and
+# bumps every record type that carries it.
+#
+# Field names are never reused for a different meaning.
+#
+# Types:
+#   text       Valid UTF-8, RFC 4180 quoted, with every byte that is not part
+#              of well-formed UTF-8 escaped as \xNN. Arbitrary octets
+#              survive, and the file is still decodable as UTF-8.
+#   mac        lowercase, colon-separated, e.g. aa:bb:cc:dd:ee:ff, normalized
+#              at the write path
+#   hex        lowercase hex, no prefix, no separators
+#   timestamp  ISO 8601 UTC, e.g. 2026-08-02T14:30:00Z
+#   enum       closed vocabulary, see enums.toml
+#   u8 u16 u32 i8 i16 i32   integers
+#   f32 f64    floats; `precision` gives decimal places on the wire
+#   bool       written 0 or 1
+#
+# See docs/design_spec.md.
+
+# ---------------------------------------------------------------------------
+# Time
+# ---------------------------------------------------------------------------
+
+[[field]]
+name = "timestamp_utc"
+type = "timestamp"
+description = """
+Wall-clock time of the observation. Empty until the device clock anchors, which \
+is a real state rather than an error: a session can run for minutes before a GPS \
+lock. Never write a placeholder here, and never a magic string such as a \
+rendered uptime: that is an untyped value in a typed column.
+
+Second resolution, so it does not order rows within a second; uptime_ms does."""
+
+[[field]]
+name = "uptime_ms"
+type = "u32"
+unit = "ms"
+description = """
+Milliseconds since boot, monotonic, at the moment the row's OBSERVATION \
+happened, never the moment it was written. Present on every row of every record type, \
+including rows written before the clock anchors.
+
+Three jobs. It orders rows within a second, which matters because most rows \
+share a second-resolution timestamp with another row. It makes \
+pre-anchor rows retroactively placeable as anchor_unix + (uptime_ms - \
+anchor_uptime_ms), rather than dropped at import. And it is the validation \
+signal for a suspect clock, since it cannot jump, be corrected, or run backwards.
+
+Wraps after about 49.7 days. The manifest records boot count so a wrap is \
+distinguishable from a reboot."""
+
+# ---------------------------------------------------------------------------
+# Position reference
+# ---------------------------------------------------------------------------
+
+[[field]]
+name = "fix_seq"
+requires = ["gnss"]
+type = "u32"
+description = """
+Which GPS fix was in effect when this row was written. Joins to the gps_track \
+row carrying the same value.
+
+The join key is (session, device, fix_seq); this counter is device-local and \
+session-local and is never a global identifier. It resets to 0 at session start.
+
+Two distinct empty cases. A build with no GNSS omits this column \
+entirely: the position is uncapturable. A build with GNSS that has not yet \
+acquired a fix writes the column empty: the position is uncaptured. The first \
+row of every session is in the second state, so it is not an edge case.
+
+Replaces inlining coordinates on every observation, where each coordinate is \
+repeated onto every row that shares the fix and dominates the file's size."""
+
+# ---------------------------------------------------------------------------
+# Observation identity and capture context
+# ---------------------------------------------------------------------------
+
+[[field]]
+name = "cap_component"
+type = "text"
+description = """
+Which capture component produced this row. The device-scoped id of a component \
+the manifest declares. Required on every record type, on every device, with no \
+capability gate.
+
+Identifies the PART, not its current job. A role name cannot: on a two-radio \
+design where one radio serves 2.4 and 5 GHz and another serves BLE and 5 GHz, \
+both would report the same role, and when 5 GHz stops working the row cannot say \
+which radio stopped. What the component is currently responsible for is \
+runtime-variable and rides on config_change rows keyed by this same id.
+
+Not a fleet-wide enum, for that reason. The values are whatever ids the device \
+declared in the manifest's `components`, and a row naming a component that was \
+never declared is an ingest error rather than an unknown to be coerced. Comparing \
+components across devices goes through the manifest's `kind`; comparing bands \
+does not need it at all, because `band` is already on the row.
+
+Redundant on a single-component device and required there anyway. A gated field \
+means the pipeline handles its absence, and that handling is the guessing this \
+contract exists to remove."""
+
+[[field]]
+name = "obs_mode"
+type = "enum"
+enum = "obs_mode"
+description = "How this observation was captured. Required on every observation row."
+
+[[field]]
+name = "mac"
+type = "mac"
+description = """
+The address this observation is ABOUT: the subject, not a position on the wire. \
+In promiscuous mode it is whichever address matched, and `detection_method` \
+says which of addr1/addr2/addr3 it came from. In scan mode it is the BSSID or \
+the BLE device address.
+
+Deliberately DERIVED, and deliberately kept alongside the positional addr1, \
+addr2 and addr3 columns rather than replaced by them. It cannot be \
+dropped as redundant: scan mode has no positional addresses at all, so this is \
+the only subject a scanning device can report, and it is the column every \
+observation record shares: the key a wifi_obs row and a ble_obs row join on.
+
+It is NOT the transmitter, and must never be named as though it were. A match \
+on addr1 makes it the RECEIVER, which is the case where something is talking to \
+a target rather than transmitting.
+
+Never empty on an observation row. An operator flag with no device belongs in \
+operator_mark, not here: a row with an empty MAC aggregates under device_key = '' \
+into one device that does not exist."""
+
+[[field]]
+name = "detection_method"
+requires = ["target_match"]
+type = "enum"
+enum = "detection_method"
+description = "Why this observation was logged. Empty on a device that logs everything it hears and has no matcher."
+
+[[field]]
+name = "frame_subtype"
+requires = ["wifi_promiscuous"]
+type = "enum"
+enum = "frame_subtype"
+description = "The 802.11 subtype this observation came from. Empty in scan mode, where the driver has already discarded the frame."
+
+# ---------------------------------------------------------------------------
+# Measurement
+# ---------------------------------------------------------------------------
+
+[[field]]
+name = "rssi"
+type = "i8"
+unit = "dBm"
+description = """
+Received signal strength, signed dBm, unscaled.
+
+Read it together with obs_mode. In promiscuous mode it is one frame's \
+measurement at one instant. In scan mode it is the driver's summary over a \
+dwell, with the averaging unspecified, so it is not the same measurement and a \
+path-loss fit should say which it will accept."""
+
+[[field]]
+name = "channel"
+type = "u16"
+description = "Radio channel number. Empty where the device cannot report one; a 0 stands in for absence and is not a channel."
+
+[[field]]
+name = "band"
+type = "enum"
+enum = "band"
+description = "Radio band. Derivable from channel for 2.4 GHz but not unambiguously above it, so it is recorded rather than inferred."
+
+[[field]]
+name = "freq_mhz"
+type = "u16"
+unit = "MHz"
+retired = true
+description = """
+Centre frequency. Removed from wifi_obs in v2 as a pure function of channel and \
+band; derive it through runtime/roost_channel.h rather than reading it.
+
+Retained because captures written under wifi_obs v1 carry the column, and a \
+consumer cannot read a column the registry cannot type. A retired field is \
+invisible to the generator and to the registry hash, so no device can name it \
+and its presence here changes nothing a device compiles against. The identifier \
+stays reserved rather than being reused for something else."""
+
+[[field]]
+name = "ssid"
+type = "text"
+description = """
+Network name as broadcast, or the probed SSID on a directed probe. Empty means \
+none was present; a zero-length SSID in a wildcard probe is also empty, and \
+detection_method distinguishes the two cases.
+
+Written RFC 4180 quoted, so an SSID containing a comma, a quote, or a newline \
+survives intact. Quoting without doubling embedded quotes, or substituting a \
+character for a delimiter, loses data."""
+
+[[field]]
+name = "device_name"
+type = "text"
+description = """
+Local name advertised by a BLE device.
+
+Deliberately NOT `ssid`. The two are both "the human-readable name a radio \
+broadcasts", which is exactly the resemblance that makes reusing one field for \
+both a mistake: an SSID names a network that many devices join, a BLE local name \
+names one device. A query joining on a shared column would silently compare the \
+two.
+
+Written RFC 4180 quoted. An unquoted name containing a newline splits the row \
+across two lines."""
+
+[[field]]
+name = "auth_mode"
+requires = ["wifi_scan", "ie_parse"]
+type = "enum"
+enum = "auth_mode"
+description = "Encryption advertised by the access point. Free in scan mode; a promiscuous capture must parse it from the beacon."
+
+# ---------------------------------------------------------------------------
+# Frame detail. Promiscuous capture only.
+# ---------------------------------------------------------------------------
+
+[[field]]
+name = "addr1"
+requires = ["wifi_promiscuous"]
+type = "mac"
+description = """
+First address field of the 802.11 MAC header, as transmitted. Always the \
+receiver address. Broadcast on a beacon, which is why it is so often \
+ff:ff:ff:ff:ff:ff.
+
+Empty means the frame did not carry this field, never that the device declined \
+to record it."""
+
+[[field]]
+name = "addr2"
+requires = ["wifi_promiscuous"]
+type = "mac"
+description = """
+Second address field of the 802.11 MAC header, as transmitted. The transmitter \
+address wherever the frame carries one.
+
+Empty is a fact about the frame: CTS and ACK carry no second address."""
+
+[[field]]
+name = "addr3"
+requires = ["wifi_promiscuous"]
+type = "mac"
+description = """
+Third address field of the 802.11 MAC header, as transmitted. It is the BSSID, \
+the destination, or the source depending on the to-DS and from-DS bits, which \
+are in `fc_flags` on the same row, so which one it is stays a pipeline \
+derivation and never a device one.
+
+Empty means the frame did not carry this field."""
+
+[[field]]
+name = "seq"
+requires = ["wifi_promiscuous"]
+type = "u16"
+description = "802.11 sequence control number, 0-4095. Detects retransmissions and duplicate captures across receivers."
+
+[[field]]
+name = "fc_flags"
+requires = ["wifi_promiscuous"]
+type = "hex"
+description = """
+Second octet of the frame control field, two hex digits. Standard bit meanings: \
+0 to-DS, 1 from-DS, 2 more-fragments, 3 retry, 6 protected.
+
+Bit 6 is the only encryption signal available to a promiscuous capture that has \
+not parsed the beacon, which is why auth_mode can be empty on a device that \
+still reports something about encryption here."""
+
+[[field]]
+name = "frame_len"
+requires = ["wifi_promiscuous"]
+type = "u16"
+unit = "bytes"
+description = "On-air frame length. Recorded whether or not the frame itself was retained, so a frame dropped from the pcap under backpressure still has its size."
+
+[[field]]
+name = "bb_format"
+requires = ["wifi_promiscuous"]
+type = "enum"
+enum = "bb_format"
+description = "Baseband format the frame was carried in."
+
+[[field]]
+name = "cap_info"
+requires = ["ie_parse"]
+type = "hex"
+description = "The two-octet capability information field from a beacon or probe response. Carries the privacy bit and the BSS type, and is part of what distinguishes one vendor's firmware build from another's."
+
+[[field]]
+name = "beacon_interval"
+requires = ["ie_parse"]
+type = "u16"
+unit = "TU"
+description = "Beacon interval in time units of 1024 microseconds. Rarely changed from a vendor default, so it is weak evidence on its own and useful as part of a fingerprint."
+
+[[field]]
+name = "ie_ids"
+requires = ["ie_parse"]
+type = "text"
+description = """
+The information element IDs from this frame, in the exact order they appeared, \
+`|`-separated.
+
+ORDER IS THE MEASUREMENT. Do not sort, deduplicate, or normalise it. The set and \
+sequence of elements is decided by the transmitter's chipset, driver, and \
+firmware build rather than by anything an installer configures, so two access \
+points off one production line have near-identical sequences despite different \
+MACs, SSIDs, and channels. Sorting it destroys exactly the signal.
+
+This is the only discriminator that survives both a hidden SSID and an unknown \
+OUI, which is why it exists: detection is otherwise OUI-driven, and coarse \
+attributes such as a hidden SSID, an authentication mode, and a band are far too \
+common to identify a vendor on their own. A vendor shipping on an unlisted OUI \
+is otherwise invisible.
+
+A delimited list inside a field is a deliberate and bounded exception to keeping \
+one value per column. It is permitted only where the sequence is itself the \
+measurement, as here; it is not a licence to pack unrelated values into a \
+column. `|` rather than `,` so the list reads clearly inside a CSV, though RFC \
+4180 quoting would make commas safe either way."""
+
+[[field]]
+name = "vendor_ies"
+requires = ["ie_parse"]
+type = "text"
+description = """
+Vendor-specific elements (ID 221) as `oui:type` pairs, `|`-separated, in frame \
+order.
+
+Split out from ie_ids because every vendor element shares ID 221, so the ID \
+sequence alone cannot distinguish them. The same ordering rule and the same \
+bounded exception apply."""
+
+# ---------------------------------------------------------------------------
+# BLE detail. Available to a promiscuous BLE capture; a scan-mode device
+# declares none of these and its rows simply do not carry the columns.
+# ---------------------------------------------------------------------------
+
+[[field]]
+name = "addr_type"
+requires = ["ble_promiscuous"]
+type = "enum"
+enum = "ble_addr_type"
+description = "Whether the address is IEEE-registered or generated. Read from the HCI report, never derived from the address bytes."
+
+[[field]]
+name = "pdu_type"
+requires = ["ble_promiscuous"]
+type = "enum"
+enum = "ble_pdu_type"
+description = "Advertising PDU type."
+
+[[field]]
+name = "phy_primary"
+requires = ["ble_promiscuous"]
+type = "enum"
+enum = "ble_phy"
+description = "PHY the primary advertising channel packet arrived on."
+
+[[field]]
+name = "phy_secondary"
+requires = ["ble_promiscuous"]
+type = "enum"
+enum = "ble_phy"
+description = "PHY the auxiliary packet arrived on, for extended advertising. Empty on legacy advertising, where there is no secondary."
+
+[[field]]
+name = "sid"
+requires = ["ble_promiscuous"]
+type = "u8"
+description = "Advertising set identifier, extended advertising only. Distinguishes concurrent advertising sets from one device."
+
+[[field]]
+name = "adv_data_hex"
+requires = ["ble_promiscuous"]
+type = "hex"
+description = """
+The complete raw advertising payload.
+
+Authoritative. The decoded companions (device_name, tx_power, and any future \
+AD-derived field) are conveniences, and if a decode ever disagrees with this \
+column, this column wins.
+
+This is what makes a capture re-analyzable against a hypothesis that did not \
+exist when it was taken. Without it, every new question requires a new \
+capture."""
+
+[[field]]
+name = "tx_power"
+type = "i8"
+unit = "dBm"
+description = """
+Transmit power the advertiser claims, from the AD structure. Empty when not \
+advertised, which is common.
+
+Present it makes path-loss ranging far better conditioned, since the reference \
+level stops being an assumption. Absent it changes nothing, so it must never be \
+substituted with a default."""
+
+[[field]]
+name = "active_scan"
+requires = ["ble_promiscuous"]
+type = "bool"
+description = """
+Whether this row came from a scan response rather than an unsolicited \
+advertisement.
+
+Recorded because it is the one field in the record that describes the observer \
+rather than the observed: a scan response exists only because this device \
+transmitted a request. It marks the rows where the capture was not passive."""
+
+# ---------------------------------------------------------------------------
+# GPS track
+# ---------------------------------------------------------------------------
+
+[[field]]
+name = "position_source"
+requires = ["gnss"]
+type = "enum"
+enum = "position_source"
+description = "Where this position came from. Required on every gps_track row; provenance is recorded, never inferred."
+
+[[field]]
+name = "lat"
+requires = ["gnss"]
+type = "f64"
+unit = "deg"
+precision = 6
+description = """
+Latitude, decimal degrees, WGS84. Empty when there is no position.
+
+Empty is the only representation of absence. 0.000000 is a coordinate off the \
+coast of Africa, not a null, and must never be written for a missing fix."""
+
+[[field]]
+name = "lon"
+requires = ["gnss"]
+type = "f64"
+unit = "deg"
+precision = 6
+description = "Longitude, decimal degrees, WGS84. Empty when there is no position. See lat."
+
+[[field]]
+name = "alt_m"
+requires = ["gnss"]
+type = "f32"
+unit = "m"
+precision = 1
+description = "Altitude above mean sea level. Empty on a 2D fix, where it is not trustworthy."
+
+[[field]]
+name = "speed_mps"
+requires = ["gnss"]
+type = "f32"
+unit = "m/s"
+precision = 2
+description = """
+Ground speed. Recorded because absence of movement changes how a capture should \
+be interpreted: a stationary device can sit for a long time between fixes while \
+remaining positionally exact, which is otherwise indistinguishable from a gap in \
+tracking."""
+
+[[field]]
+name = "course_deg"
+requires = ["gnss"]
+type = "f32"
+unit = "deg"
+precision = 1
+description = "Course over ground, 0-360, true north. Empty when stationary, where it is meaningless rather than zero."
+
+[[field]]
+name = "hdop"
+requires = ["gnss"]
+type = "f32"
+precision = 2
+description = """
+Horizontal dilution of precision, as reported by the module. The geometry half \
+of an accuracy estimate; the other half is the module's nominal precision, which \
+the manifest carries as gnss_cep_m. The estimate itself is deliberately not a \
+column; it is derived at ingest, where the model can be improved retroactively \
+rather than frozen at capture time."""
+
+[[field]]
+name = "sats"
+requires = ["gnss"]
+type = "u8"
+description = "Satellites used in the fix."
+
+[[field]]
+name = "fix_type"
+requires = ["gnss"]
+type = "enum"
+enum = "fix_type"
+description = "Quality of the fix."
+
+[[field]]
+name = "fix_age_ms"
+requires = ["gnss"]
+type = "u32"
+unit = "ms"
+description = "Milliseconds since the receiver last produced this fix. 0 on a live fix. Non-zero with position_source = device_stale, and it is what makes that state auditable."
+
+# ---------------------------------------------------------------------------
+# Configuration changes
+# ---------------------------------------------------------------------------
+
+[[field]]
+name = "setting"
+type = "enum"
+enum = "config_setting"
+description = """
+Which runtime-mutable setting this row reports. The vocabulary is synthesized \
+from the runtime tier of manifest.toml, so a setting is declared once and an \
+unrecognised one is an error rather than an unvalidated string."""
+
+[[field]]
+name = "value"
+type = "text"
+description = """
+The setting's new value, rendered as text and interpreted per the type the \
+setting declares.
+
+Text rather than a typed column because settings differ in type: a channel list, \
+a dwell in milliseconds, and a vendor mask cannot share one.
+
+Rendering is fixed by the setting's declared type, so a reader parses without \
+guessing and two devices cannot render one setting two ways:
+
+  text, u32, f32, enum   verbatim
+  list                   `|`-separated, e.g. 1|6|11
+  map                    `|`-separated key=value pairs, e.g. dwell=250|window=5000
+  absent / not applicable  empty, never the string "null"
+
+`|` matches the ie_ids convention so a list reads clearly inside a CSV; RFC 4180 \
+quoting would make commas safe either way. A value that would itself need `|` or \
+`=` escaped is a sign the setting should be split into its own settings rather \
+than nested here.
+
+There is deliberately no `old_value`. The previous row for the same setting \
+already carries it, and the boot rows guarantee a previous row always exists, so \
+storing it would be derivable data written twice."""
+
+# ---------------------------------------------------------------------------
+# Device events
+# ---------------------------------------------------------------------------
+
+[[field]]
+name = "event_kind"
+type = "enum"
+enum = "device_event_kind"
+description = "What happened."
+
+[[field]]
+name = "event_detail"
+type = "text"
+description = "Human-readable detail. Free text by design: this field is for diagnosis, and anything a consumer must branch on belongs in a typed field instead."
+
+[[field]]
+name = "event_count"
+type = "u32"
+description = "How many items the event concerns, for events that discard things. The count of observations lost to a buffer_full, or of failed writes in a storage_error."

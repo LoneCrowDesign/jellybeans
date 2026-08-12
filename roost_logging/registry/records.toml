@@ -1,0 +1,257 @@
+# Record types for the birdoscope ecosystem log contract.
+#
+# A record type is a set of fields with one shared meaning for what a row is.
+# Devices differ in which fields of a type they populate, never in which type
+# they are writing. Subsetting holds within a type and never across them:
+# a per-frame observation and a per-device census are different records even
+# where their field names agree, because merging them makes any count mix
+# per-frame with per-device totals.
+#
+# `fields` is the canonical order. A device emits an order-preserving projection
+# of it, never a permutation. Name is the contract and ingest dispatches on
+# it; order is a convention enforced at build time so a reordering device is a
+# build failure rather than a corrupt import.
+#
+# `required` fields must be populated by every device that emits the type. A
+# device that cannot populate one cannot emit the type at all.
+#
+# `restrict.<field>` narrows an enum field's legal values for this record type.
+# It exists because a vocabulary can be shared by record types that accept
+# different halves of it: `detection_method` covers both radios, but `ble_oui` on
+# a Wi-Fi row is nonsense. Without the restriction the "closed vocabulary"
+# guarantee is weaker than it looks, since the shared C enum would happily carry
+# a BLE value onto a Wi-Fi row. Per-radio vocabularies are not used instead,
+# because two fields meaning the same thing is what the one-name-one-meaning
+# rule forbids.
+#
+# One file per record type per session, named <record>.v<version>.csv inside the
+# session directory.
+#
+# See docs/design_spec.md.
+
+# ---------------------------------------------------------------------------
+
+[[record]]
+name = "wifi_obs"
+requires = ["wifi"]
+version = 2
+family = "observation"
+devices = ["scan_logger", "bscope_analyze", "bscope_wardriver"]
+description = """
+One Wi-Fi observation: a received frame in promiscuous mode, or a device present \
+in a scan window in scan mode. `obs_mode` says which, and carries the difference \
+in what the row, its RSSI, and its timestamp mean.
+
+All listed devices share this type. The field set is their union rather than a \
+nesting, because no device's subset contains another's: scan mode gets auth_mode \
+free and promiscuous mode does not, while promiscuous mode gets the whole frame \
+layer and scan mode never sees a frame.
+
+2: `freq_mhz` removed. It was a pure function of `channel` and `band`, both \
+retained on the same row, and a value the pipeline can rederive from data on the \
+same row does not earn a column. It was also a second place the same fact could \
+disagree with itself, since independent derivations of a frequency from a \
+channel number do not have to agree. `channel` is the raw driver fact and joins \
+to config_change's channel plan; `band` is what disambiguates a numbering space \
+that overlaps between 2.4 GHz and 6 GHz. Frequency is a derivation, and \
+derivations live in runtime/, as docs/design_spec.md section 3.1 requires, not \
+in a column that has to agree with two others. The identifier is retired, not \
+reused."""
+fields = [
+  "timestamp_utc", "uptime_ms", "fix_seq",
+  "cap_component", "obs_mode", "mac", "detection_method", "frame_subtype",
+  "rssi", "channel", "band",
+  "ssid", "auth_mode",
+  "addr1", "addr2", "addr3", "seq", "fc_flags", "frame_len", "bb_format",
+  "cap_info", "beacon_interval", "ie_ids", "vendor_ies",
+]
+required = ["uptime_ms", "cap_component", "obs_mode", "mac", "rssi"]
+restrict.detection_method = [
+  "oui_addr1", "oui_addr2", "oui_addr3", "ssid_match",
+  "wildcard_probe", "directed_probe", "ie_match", "unmatched",
+]
+
+[[record]]
+name = "wifi_obs"
+version = 1
+retired = true
+requires = ["wifi"]
+family = "observation"
+devices = ["scan_logger", "bscope_analyze", "bscope_wardriver"]
+description = """
+Superseded by v2, which removed `freq_mhz`. Retained so captures already written \
+under v1 stay readable, which is what docs/design_spec.md section 3.5 promises \
+when it says a version is the sanctioned home for a breaking change and that \
+files already written stay readable under the version they declare. Without the definition here that \
+promise has no mechanism: a consumer dispatching on `record` and `version` finds \
+nothing to dispatch to, and `freq_mhz` has no type.
+
+A retired record is read-only. The generator skips it, so no device can emit it \
+and the C header is unchanged; the registry hash skips it, so its presence \
+cannot force a reflash. Exactly one non-retired version of a record name may \
+exist at a time: that one is the contract devices compile against, and the \
+retired blocks are the archive consumers read.
+
+Do not edit a retired block to match a later shape. Its whole purpose is to \
+describe bytes that are already on a card, and those cannot be changed."""
+fields = [
+  "timestamp_utc", "uptime_ms", "fix_seq",
+  "cap_component", "obs_mode", "mac", "detection_method", "frame_subtype",
+  "rssi", "channel", "band", "freq_mhz",
+  "ssid", "auth_mode",
+  "addr1", "addr2", "addr3", "seq", "fc_flags", "frame_len", "bb_format",
+  "cap_info", "beacon_interval", "ie_ids", "vendor_ies",
+]
+required = ["uptime_ms", "cap_component", "obs_mode", "mac", "rssi"]
+restrict.detection_method = [
+  "oui_addr1", "oui_addr2", "oui_addr3", "ssid_match",
+  "wildcard_probe", "directed_probe", "ie_match", "unmatched",
+]
+
+[[record]]
+name = "ble_obs"
+requires = ["ble"]
+version = 1
+family = "observation"
+devices = ["scan_logger", "bscope_wardriver"]
+description = """
+One BLE observation: a received advertisement in promiscuous mode, or a device \
+present in a scan window in scan mode.
+
+Carries the full union from the start, including the BLE detail only a \
+promiscuous capture can reach. Holding those back for a later version would buy \
+nothing: a device that cannot populate a field does not declare it, so it never \
+appears in that device's header or rows, and a scan-mode device pays nothing for \
+adv_data_hex existing.
+
+Note what this type does NOT borrow from wifi_obs. There is no `ssid`, because a \
+BLE local name is not a network name: `device_name` is its own field. There is \
+no `channel`, because a BLE advertising channel is not an 802.11 channel and \
+no device in the set reports one, and 0 is a value standing in for absence. \
+Reusing either field here would reproduce inside this schema exactly the defect \
+the separation exists to remove."""
+fields = [
+  "timestamp_utc", "uptime_ms", "fix_seq",
+  "cap_component", "obs_mode", "mac", "addr_type", "detection_method",
+  "rssi", "tx_power",
+  "device_name",
+  "pdu_type", "phy_primary", "phy_secondary", "sid", "active_scan",
+  "adv_data_hex",
+]
+required = ["uptime_ms", "cap_component", "obs_mode", "mac", "rssi"]
+restrict.detection_method = ["ble_oui", "ble_mfr", "unmatched"]
+
+[[record]]
+name = "gps_track"
+requires = ["gnss"]
+version = 1
+family = "context"
+devices = ["scan_logger", "bscope_analyze", "bscope_wardriver"]
+description = """
+One GPS fix. The authoritative record of where the device was, referenced by \
+`fix_seq` from every observation row rather than repeated onto it.
+
+Written unconditionally, one row per fix, whether or not anything was observed. \
+That is what makes absence provable: a gap in observations against a continuous \
+track is a field observation, while the same gap with no track is an unknown."""
+fields = [
+  "timestamp_utc", "uptime_ms", "fix_seq", "cap_component", "position_source",
+  "lat", "lon", "alt_m",
+  "speed_mps", "course_deg",
+  "hdop", "sats", "fix_type", "fix_age_ms",
+]
+required = ["uptime_ms", "cap_component", "fix_seq", "position_source"]
+
+[[record]]
+name = "device_event"
+family = "device"
+version = 1
+devices = ["scan_logger", "bscope_analyze", "bscope_wardriver"]
+description = """
+One device-level event that is not an observation: boot, clock anchor, storage \
+failure, buffer overflow, shutdown.
+
+Exists so that a degraded capture is a recorded fact rather than an unretained \
+serial message. Without it, a truncated capture reads as a quiet one, and \
+freeform diagnostic text in a side file is not a substitute because nothing \
+parses it."""
+fields = [
+  "timestamp_utc", "uptime_ms", "fix_seq",
+  "cap_component", "event_kind", "event_count", "event_detail",
+]
+required = ["uptime_ms", "cap_component", "event_kind"]
+
+[[record]]
+name = "config_change"
+version = 1
+family = "context"
+devices = ["scan_logger", "bscope_analyze", "bscope_wardriver"]
+description = """
+One runtime-mutable setting taking a new value. Transitions only; there is no \
+periodic row, and a heartbeat is an operator-facing alive indicator that is \
+never logged.
+
+Every setting is written once at boot with its initial value, so this file alone \
+answers what the device was doing at any instant: the state at time T is the last \
+row per setting with uptime_ms at or below T, and that is always defined. No \
+reader needs the manifest to interpret the first interval, which is why runtime \
+settings live here and not there.
+
+Two-column key/value on purpose. Restating each setting as its own column would \
+mean adding a runtime-tunable knob bumps the record version, and would duplicate \
+the definitions the runtime tier already carries.
+
+Low write volume by construction: a handful of rows at boot, then one per genuine \
+change. A setting re-applied to its existing value must not produce a row, or a \
+settings screen floods a file meant to be sparse.
+
+Resolved by timestamp rather than an explicit sequence, unlike position. \
+There is a current configuration at every instant, so last-transition-before is \
+exact; there is not always a current GPS fix, so that reference has to be \
+explicit."""
+fields = [
+  "timestamp_utc", "uptime_ms", "fix_seq",
+  "cap_component", "setting", "value",
+]
+required = ["uptime_ms", "cap_component", "setting"]
+
+[[record]]
+name = "operator_mark"
+requires = ["operator_mark"]
+version = 1
+family = "annotation"
+devices = ["bscope_analyze"]
+description = """
+The operator flagged a place. Nothing more.
+
+A mark means somebody saw something worth returning to and wanted the position \
+recorded so it can be investigated later, once cross-device context is \
+available. The question it is asked in analysis is "what was in range here", \
+which is answered by joining against other captures, not by anything in this \
+row.
+
+There is no device, so there is no mac, no rssi, and no detection_method. \
+Carrying a mark in an observation record instead requires an empty mac and a \
+placeholder rssi, which breaks two ways: every press in a session aggregates \
+under device_key = '' into one device that does not exist, and the rssi is a \
+measurement that was never taken. Giving the mark its own record type dissolves \
+both.
+
+The row's existence is the information. Its content is when and where.
+
+No mark_seq: the operator's Nth mark is the Nth row, so a counter would be \
+derivable data stored twice.
+
+fix_seq is NOT required, even though position is the point. Requiring it would \
+bar a device with no GNSS from marking at all, and a time-only mark is still \
+recoverable, because a co-located device's track supplies the position at that \
+instant. That cross-device resolution is a consumer-side concern, and it is \
+exactly the context this record exists to be read against.
+
+Repeat presses are never suppressed, unlike a no-op config_change. A press is an \
+event rather than a state, two presses may mean two things, and the operator is \
+the authority on that."""
+fields = [
+  "timestamp_utc", "uptime_ms", "fix_seq", "cap_component",
+]
+required = ["uptime_ms", "cap_component"]

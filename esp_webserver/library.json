@@ -15,6 +15,6 @@
     { "owner": "bblanchon", "name": "ArduinoJson", "version": "^7" }
   ],
   "export": {
-    "include": ["src", "examples", "README.md"]
+    "include": ["src", "examples", "LICENSE", "README.md"]
   }
 }
