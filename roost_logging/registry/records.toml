@@ -69,6 +69,7 @@ required = ["uptime_ms", "cap_component", "obs_mode", "mac", "rssi"]
 restrict.detection_method = [
   "oui_addr1", "oui_addr2", "oui_addr3", "ssid_match",
   "wildcard_probe", "directed_probe", "ie_match", "unmatched",
+  "operator_survey",
 ]
 
 [[record]]

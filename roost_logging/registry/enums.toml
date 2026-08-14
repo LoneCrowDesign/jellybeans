@@ -64,6 +64,7 @@ values = [
   { name = "ble_oui",        description = "A BLE advertisement whose address matched the tagged OUI table." },
   { name = "ble_mfr",        description = "A BLE advertisement matching a configured manufacturer-data prefix." },
   { name = "unmatched",      description = "Observed and logged but matched no rule. A collector retains unmatched traffic as data; a detector does not log it at all." },
+  { name = "operator_survey", description = "Logged during an operator-opened survey window, where the matcher is bypassed rather than run and rejected as in `unmatched`." },
 ]
 
 [[enum]]

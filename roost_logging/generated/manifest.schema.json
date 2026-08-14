@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Birdoscope ecosystem session manifest",
   "description": "GENERATED from registry/*.toml. Do not edit.",
-  "x-registry-hash": "c280d1f75e91ee8caf22a72c41a6e6c17f6b327201b8bb5b3d6dd979c624ef98",
+  "x-registry-hash": "9132e2ce3d8f08fb955a556fa2b5c92ad3dd5b15708bd42f79cc6f7642c0d944",
   "type": "object",
   "required": [
     "manifest_version",

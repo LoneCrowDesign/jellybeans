@@ -14,7 +14,7 @@
 // table rather than a per-device format string, which is what keeps the
 // column layouts from drifting apart.
 //
-// Registry fingerprint: c280d1f75e91ee8caf22a72c41a6e6c17f6b327201b8bb5b3d6dd979c624ef98
+// Registry fingerprint: 9132e2ce3d8f08fb955a556fa2b5c92ad3dd5b15708bd42f79cc6f7642c0d944
 
 #pragma once
 
@@ -23,8 +23,8 @@
 #include <string.h>
 #include <stdio.h>
 
-#define ROOST_REGISTRY_HASH "c280d1f75e91ee8caf22a72c41a6e6c17f6b327201b8bb5b3d6dd979c624ef98"
-#define ROOST_REGISTRY_HASH_SHORT "c280d1f75e91"
+#define ROOST_REGISTRY_HASH "9132e2ce3d8f08fb955a556fa2b5c92ad3dd5b15708bd42f79cc6f7642c0d944"
+#define ROOST_REGISTRY_HASH_SHORT "9132e2ce3d8f"
 
 // Populatable-field bitmask. Bit N corresponds to index N in the record's
 // canonical field order.
@@ -98,7 +98,8 @@ typedef enum {
   ROOST_DETECTION_METHOD_BLE_OUI = 7,
   ROOST_DETECTION_METHOD_BLE_MFR = 8,
   ROOST_DETECTION_METHOD_UNMATCHED = 9,
-  ROOST_DETECTION_METHOD_COUNT = 10
+  ROOST_DETECTION_METHOD_OPERATOR_SURVEY = 10,
+  ROOST_DETECTION_METHOD_COUNT = 11
 } RoostDetectionMethod;
 
 static const char *const kRoostDetectionMethod[] = {
@@ -112,6 +113,7 @@ static const char *const kRoostDetectionMethod[] = {
   "ble_oui",
   "ble_mfr",
   "unmatched",
+  "operator_survey",
 };
 
 // Resolves a producer's spelling to the enum. Returns _COUNT when the
@@ -650,8 +652,8 @@ typedef char roost_required_wifi_obs_declared[
     ((ROOST_WIFI_OBS_COLUMNS_MASK & ROOST_WIFI_OBS_REQUIRED_MASK)
      == ROOST_WIFI_OBS_REQUIRED_MASK) ? 1 : -1];
 #endif
-// detection_method on this record accepts only: directed_probe, ie_match, oui_addr1, oui_addr2, oui_addr3, ssid_match, unmatched, wildcard_probe
-#define ROOST_WIFI_OBS_DETECTION_METHOD_ALLOWED ((uint64_t)0x000000000000027full)
+// detection_method on this record accepts only: directed_probe, ie_match, operator_survey, oui_addr1, oui_addr2, oui_addr3, ssid_match, unmatched, wildcard_probe
+#define ROOST_WIFI_OBS_DETECTION_METHOD_ALLOWED ((uint64_t)0x000000000000067full)
 
 // ble_obs v1 - canonical field order.
 enum {
@@ -1276,11 +1278,11 @@ static const uint8_t *const kRoostFieldPrec[] = {
 static const char *const *const kRoostWifiObsEnumNames[] = {
   0, 0, 0, 0, kRoostObsMode, 0, kRoostDetectionMethod, kRoostFrameSubtype, 0, 0, kRoostBand, 0, kRoostAuthMode, 0, 0, 0, 0, 0, 0, kRoostBbFormat, 0, 0, 0, 0};
 static const uint8_t kRoostWifiObsEnumCount[] = {
-  0, 0, 0, 0, 2, 0, 10, 17, 0, 0, 2, 0, 11, 0, 0, 0, 0, 0, 0, 9, 0, 0, 0, 0};
+  0, 0, 0, 0, 2, 0, 11, 17, 0, 0, 2, 0, 11, 0, 0, 0, 0, 0, 0, 9, 0, 0, 0, 0};
 static const char *const *const kRoostBleObsEnumNames[] = {
   0, 0, 0, 0, kRoostObsMode, 0, kRoostBleAddrType, kRoostDetectionMethod, 0, 0, 0, kRoostBlePduType, kRoostBlePhy, kRoostBlePhy, 0, 0, 0};
 static const uint8_t kRoostBleObsEnumCount[] = {
-  0, 0, 0, 0, 2, 0, 2, 10, 0, 0, 0, 7, 3, 3, 0, 0, 0};
+  0, 0, 0, 0, 2, 0, 2, 11, 0, 0, 0, 7, 3, 3, 0, 0, 0};
 static const char *const *const kRoostGpsTrackEnumNames[] = {
   0, 0, 0, 0, kRoostPositionSource, 0, 0, 0, 0, 0, 0, 0, kRoostFixType, 0};
 static const uint8_t kRoostGpsTrackEnumCount[] = {
