@@ -337,6 +337,15 @@ the anchor may then do:
   Derive the provisional name by probing for the first unused one, and refuse to start when the
   space is exhausted rather than falling back to a shared last resort, which would put two boots in
   one session.
+- **Unique across devices, not just on the card.** A name must be unique across every device whose
+  captures reach one ingest directory. Probing cannot establish that. A device sees its own
+  storage, so two units of one model capturing on one day both pick the first unused name. The name
+  therefore carries a device tag derived from `device_serial`, and probing settles the sequence
+  within that tag. The `device_serial` key in `manifest.toml` makes the same argument one level
+  down.
+  Hardware with no stable serial names the model alone, and two such units deployed together stay
+  indistinguishable at ingest. The tag identifies the unit, so a device derives it from the serial
+  and never from anything that varies per boot.
 - **Rename, never restart.** When the anchor lands the container is renamed. Every file is the
   same file afterwards: no header is re-emitted, no capture-format global header is duplicated, and
   each record type stays one continuous file across the anchor rather than a pre/post pair that a
@@ -437,7 +446,7 @@ that cannot express absence any other way is missing a field, not in need of a m
 Session format (pre-time anchor):
 
 ```
-/{device shortcode}-{bootsequence}-{session}/
+/{device shortcode}-{device tag}-boot-{bootsequence}/
     manifest.json
     wifi_obs.v1.csv
     ble_obs.v1.csv
@@ -450,7 +459,7 @@ Session format (pre-time anchor):
 Session format (post-anchor):
 
 ```
-/{device shortcode}-{day}-{month}-{year}-{session}/
+/{device shortcode}-{device tag}-{year}{month}{day}-{session}/
     manifest.json
     wifi_obs.v1.csv
     ble_obs.v1.csv
@@ -459,6 +468,18 @@ Session format (post-anchor):
     device_event.v1.csv
     frames.pcap
 ```
+
+The name is the session's identity. `session_id` in the manifest is the container's own name, so a
+capture names its own files and nothing downstream records a path. Its parts:
+
+- **device shortcode** names the model, and is a compile-time constant.
+- **device tag** names the unit with the last four hex digits of `device_serial`, omitted where
+  the hardware has no stable serial. Four digits, because a fleet of one model shares an OUI and
+  the entropy sits in the low bytes.
+- **year, month, day** are two digits each, so a directory listing sorts chronologically.
+- **session** is the sequence within one tag on one day, from 1, found by probing.
+- **bootsequence** is `boot_count`, which comes from non-volatile storage and survives a reflash.
+  It replaces the day and sequence before the clock anchors, when neither is knowable.
 
 The manifest has two halves, maintained differently:
 

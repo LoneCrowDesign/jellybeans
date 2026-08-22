@@ -42,7 +42,7 @@
 # An envelope change rather than a registry one, but it moves the hash for the
 # same reason everything else here does: a reader validating against the old
 # schema rejects a manifest written to the new one.
-manifest_version = 2
+manifest_version = 3
 
 # Which revision of the text encoding the writer applies. Not a manifest key:
 # it is folded into the registry hash, so a build that encodes text one way and
@@ -97,8 +97,8 @@ name = "session"
 tier = "session"
 description = "Identity and timing of this capture."
 keys = [
-  { name = "session_id",        type = "text", required = true, description = "Device-local session identity, unique on this device. Not globally unique: runs spanning several devices are grouped at import, because devices in the field share no link to agree on an identifier." },
-  { name = "sequence",          type = "u32",  required = true, description = "The N in a dated session directory, from 1." },
+  { name = "session_id",        type = "text", required = true, description = "Identity of this capture, and the name of the container holding it. A capture names its own files, so nothing downstream records a path. Unique across devices wherever device_serial is non-null, because the name carries a device tag derived from it. Reduces to device-local on hardware with no stable serial, where two co-deployed units stay indistinguishable at ingest. Devices in the field share no link for agreeing on an identifier, so a run spanning several of them is still grouped at import." },
+  { name = "sequence",          type = "u32",  required = true, description = "The N in a dated session directory, from 1. Counts within one device tag, so two units capturing on one day each start from 1." },
   { name = "boot_count",        type = "u32",  required = true, description = "Boots since the device was first used. Disambiguates a uptime_ms wrap, which occurs after about 49.7 days, from a reboot." },
   { name = "started_utc",       type = "text", required = true, description = "Wall-clock start. Null when the clock never anchored, which is a real state and not an error." },
   { name = "ended_utc",         type = "text", required = true, description = "Wall-clock end, written at the final manifest rewrite. Null on a session that lost power, which is itself the signal that it did." },

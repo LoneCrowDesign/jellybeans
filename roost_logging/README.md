@@ -1,4 +1,4 @@
-# Roost Logging: Unified Logging 
+# Roost: Unified Logging
 
 - One TOML registry defines field names, types, units, enum values, and record layouts once.
 - A generated C header gives every device the same row builder, so no device reimplements quoting,

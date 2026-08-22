@@ -1,5 +1,5 @@
 {
-  "manifest_version": 2,
+  "manifest_version": 3,
   "files": [
     {
       "record": "wifi_obs",
@@ -141,7 +141,7 @@
     ]
   },
   "session": {
-    "session_id": "bscope-1-1-26-1",
+    "session_id": "bscope-0001-260101-2",
     "sequence": 2,
     "boot_count": 12,
     "started_utc": "2026-01-01T12:00:00Z",
