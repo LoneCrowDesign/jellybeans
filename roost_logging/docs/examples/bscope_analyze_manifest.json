@@ -104,7 +104,7 @@
     }
   ],
   "identity": {
-    "registry_hash": "c280d1f75e91ee8caf22a72c41a6e6c17f6b327201b8bb5b3d6dd979c624ef98",
+    "registry_hash": "a4d45b08d53c8a4baf132327a0a03b830a5f31e83c40ce83b0b5eef138194bff",
     "device_model": "bscope_analyze",
     "device_serial": "sn-0001",
     "hw_revision": "HWr0.1",

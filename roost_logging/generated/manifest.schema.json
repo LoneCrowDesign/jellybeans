@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Birdoscope ecosystem session manifest",
   "description": "GENERATED from registry/*.toml. Do not edit.",
-  "x-registry-hash": "9132e2ce3d8f08fb955a556fa2b5c92ad3dd5b15708bd42f79cc6f7642c0d944",
+  "x-registry-hash": "a4d45b08d53c8a4baf132327a0a03b830a5f31e83c40ce83b0b5eef138194bff",
   "type": "object",
   "required": [
     "manifest_version",
@@ -272,14 +272,14 @@
       ],
       "properties": {
         "session_id": {
-          "description": "Device-local session identity, unique on this device. Not globally unique: runs spanning several devices are grouped at import, because devices in the field share no link to agree on an identifier.",
+          "description": "Identity of this capture, and the name of the container holding it. A capture names its own files, so nothing downstream records a path. Unique across devices wherever device_serial is non-null, because the name carries a device tag derived from it. Reduces to device-local on hardware with no stable serial, where two co-deployed units stay indistinguishable at ingest. Devices in the field share no link for agreeing on an identifier, so a run spanning several of them is still grouped at import.",
           "type": [
             "string",
             "null"
           ]
         },
         "sequence": {
-          "description": "The N in a dated session directory, from 1.",
+          "description": "The N in a dated session directory, from 1. Counts within one device tag, so two units capturing on one day each start from 1.",
           "type": [
             "integer",
             "null"

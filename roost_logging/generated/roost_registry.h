@@ -14,7 +14,7 @@
 // table rather than a per-device format string, which is what keeps the
 // column layouts from drifting apart.
 //
-// Registry fingerprint: 9132e2ce3d8f08fb955a556fa2b5c92ad3dd5b15708bd42f79cc6f7642c0d944
+// Registry fingerprint: a4d45b08d53c8a4baf132327a0a03b830a5f31e83c40ce83b0b5eef138194bff
 
 #pragma once
 
@@ -23,8 +23,8 @@
 #include <string.h>
 #include <stdio.h>
 
-#define ROOST_REGISTRY_HASH "9132e2ce3d8f08fb955a556fa2b5c92ad3dd5b15708bd42f79cc6f7642c0d944"
-#define ROOST_REGISTRY_HASH_SHORT "9132e2ce3d8f"
+#define ROOST_REGISTRY_HASH "a4d45b08d53c8a4baf132327a0a03b830a5f31e83c40ce83b0b5eef138194bff"
+#define ROOST_REGISTRY_HASH_SHORT "a4d45b08d53c"
 
 // Populatable-field bitmask. Bit N corresponds to index N in the record's
 // canonical field order.
@@ -1691,7 +1691,7 @@ static inline size_t roostFileName(char *out, size_t cap, RoostRecord r) {
 // the constants below so two devices cannot spell one fact two ways.
 // --------------------------------------------------------------------------
 
-#define ROOST_MANIFEST_VERSION 2
+#define ROOST_MANIFEST_VERSION 3
 
 // Which revision of the text encoding roostRowSetTextN implements. Folded
 // into the registry hash, so it is stated here for a test to assert against
