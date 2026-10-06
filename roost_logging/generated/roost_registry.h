@@ -14,7 +14,7 @@
 // table rather than a per-device format string, which is what keeps the
 // column layouts from drifting apart.
 //
-// Registry fingerprint: a4d45b08d53c8a4baf132327a0a03b830a5f31e83c40ce83b0b5eef138194bff
+// Registry fingerprint: bf8d2bbbcb806221d1c476e35b34438451bc68c314ccf70cecfba4aa4ca64233
 
 #pragma once
 
@@ -23,8 +23,8 @@
 #include <string.h>
 #include <stdio.h>
 
-#define ROOST_REGISTRY_HASH "a4d45b08d53c8a4baf132327a0a03b830a5f31e83c40ce83b0b5eef138194bff"
-#define ROOST_REGISTRY_HASH_SHORT "a4d45b08d53c"
+#define ROOST_REGISTRY_HASH "bf8d2bbbcb806221d1c476e35b34438451bc68c314ccf70cecfba4aa4ca64233"
+#define ROOST_REGISTRY_HASH_SHORT "bf8d2bbbcb80"
 
 // Populatable-field bitmask. Bit N corresponds to index N in the record's
 // canonical field order.
@@ -85,6 +85,29 @@ static inline RoostObsMode roostObsModeByName(const char *name) {
     for (int i = 0; i < ROOST_OBS_MODE_COUNT; i++)
       if (!strcmp(name, kRoostObsMode[i])) return (RoostObsMode)i;
   return ROOST_OBS_MODE_COUNT;
+}
+
+typedef enum {
+  ROOST_RADIO_MODE_WIFI = 0,
+  ROOST_RADIO_MODE_BLE = 1,
+  ROOST_RADIO_MODE_COUNT = 2
+} RoostRadioMode;
+
+static const char *const kRoostRadioMode[] = {
+  "wifi",
+  "ble",
+};
+
+// Resolves a producer's spelling to the enum. Returns _COUNT when the
+// name is not in the vocabulary, so an unresolvable value is a state the
+// caller must handle rather than a silent zero, which is a real value.
+// Emitted for every enum because a device reaching a typed field with a
+// name string is the normal case, not the exception.
+static inline RoostRadioMode roostRadioModeByName(const char *name) {
+  if (name)
+    for (int i = 0; i < ROOST_RADIO_MODE_COUNT; i++)
+      if (!strcmp(name, kRoostRadioMode[i])) return (RoostRadioMode)i;
+  return ROOST_RADIO_MODE_COUNT;
 }
 
 typedef enum {
@@ -489,7 +512,8 @@ typedef enum {
   ROOST_CONFIG_SETTING_SCAN_PERIOD_MS = 4,
   ROOST_CONFIG_SETTING_VENDOR_MASK = 5,
   ROOST_CONFIG_SETTING_FILTERS = 6,
-  ROOST_CONFIG_SETTING_COUNT = 7
+  ROOST_CONFIG_SETTING_RADIO_MODE = 7,
+  ROOST_CONFIG_SETTING_COUNT = 8
 } RoostConfigSetting;
 
 static const char *const kRoostConfigSetting[] = {
@@ -500,6 +524,7 @@ static const char *const kRoostConfigSetting[] = {
   "scan_period_ms",
   "vendor_mask",
   "filters",
+  "radio_mode",
 };
 
 // Resolves a producer's spelling to the enum. Returns _COUNT when the
@@ -1294,7 +1319,7 @@ static const uint8_t kRoostDeviceEventEnumCount[] = {
 static const char *const *const kRoostConfigChangeEnumNames[] = {
   0, 0, 0, 0, kRoostConfigSetting, 0};
 static const uint8_t kRoostConfigChangeEnumCount[] = {
-  0, 0, 0, 0, 7, 0};
+  0, 0, 0, 0, 8, 0};
 static const char *const *const kRoostOperatorMarkEnumNames[] = {
   0, 0, 0, 0};
 static const uint8_t kRoostOperatorMarkEnumCount[] = {

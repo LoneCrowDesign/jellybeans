@@ -47,6 +47,22 @@ values = [
 ]
 
 [[enum]]
+name = "radio_mode"
+description = """
+The radio a device captures with, for a device with more radios than it can \
+run at once.
+
+Distinct from component_kind, which names what a part is, and from obs_mode, \
+which names how a capture was made.
+
+Values name a radio. The band an 802.11 radio serves can change at runtime, \
+and `channels` records it."""
+values = [
+  { name = "wifi", description = "802.11 capture only. Any BLE radio is idle." },
+  { name = "ble",  description = "BLE capture only. Any 802.11 radio is idle." },
+]
+
+[[enum]]
 name = "detection_method"
 description = """
 Why this observation was logged. Named for the address field that matched, so \
