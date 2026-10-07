@@ -14,7 +14,7 @@
 // table rather than a per-device format string, which is what keeps the
 // column layouts from drifting apart.
 //
-// Registry fingerprint: bf8d2bbbcb806221d1c476e35b34438451bc68c314ccf70cecfba4aa4ca64233
+// Registry fingerprint: c8be84226a7295ac55e75e1034ecf8d42e51e211c4ea6f279b58e240b969b7d0
 
 #pragma once
 
@@ -23,8 +23,8 @@
 #include <string.h>
 #include <stdio.h>
 
-#define ROOST_REGISTRY_HASH "bf8d2bbbcb806221d1c476e35b34438451bc68c314ccf70cecfba4aa4ca64233"
-#define ROOST_REGISTRY_HASH_SHORT "bf8d2bbbcb80"
+#define ROOST_REGISTRY_HASH "c8be84226a7295ac55e75e1034ecf8d42e51e211c4ea6f279b58e240b969b7d0"
+#define ROOST_REGISTRY_HASH_SHORT "c8be84226a72"
 
 // Populatable-field bitmask. Bit N corresponds to index N in the record's
 // canonical field order.
@@ -735,8 +735,8 @@ typedef char roost_required_ble_obs_declared[
     ((ROOST_BLE_OBS_COLUMNS_MASK & ROOST_BLE_OBS_REQUIRED_MASK)
      == ROOST_BLE_OBS_REQUIRED_MASK) ? 1 : -1];
 #endif
-// detection_method on this record accepts only: ble_mfr, ble_oui, unmatched
-#define ROOST_BLE_OBS_DETECTION_METHOD_ALLOWED ((uint64_t)0x0000000000000380ull)
+// detection_method on this record accepts only: ble_mfr, ble_oui, operator_survey, unmatched
+#define ROOST_BLE_OBS_DETECTION_METHOD_ALLOWED ((uint64_t)0x0000000000000780ull)
 
 // gps_track v1 - canonical field order.
 enum {
